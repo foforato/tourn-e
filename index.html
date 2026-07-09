@@ -12,13 +12,52 @@
   <script src="https://unpkg.com/tesseract.js@5/dist/tesseract.min.js"></script>
 
   <style>
-    /* Hauteur d'écran fiable sur mobile (gère la barre d'URL qui se rétracte) */
-    html, body { height: 100vh; height: 100dvh; }
-    /* Sur mobile, la carte doit toujours avoir une hauteur réelle */
-    @media (max-width: 767px) {
-      #map-section { height: calc(100dvh - 4rem - 4rem); } /* header + barre nav bas */
-      #map { min-height: 300px; }
+    /* ---------- DESKTOP (≥ 768px) : 2 colonnes, hauteur d'écran fixe ---------- */
+    @media (min-width: 768px) {
+      html, body { height: 100vh; height: 100dvh; overflow: hidden; }
     }
+
+    /* ---------- MOBILE (< 768px) : onglets, page qui scrolle naturellement ---------- */
+    @media (max-width: 767px) {
+      html, body {
+        height: auto !important;
+        min-height: 100dvh;
+        overflow-y: auto !important;
+        -webkit-overflow-scrolling: touch;
+      }
+      body { display: block !important; }
+      #app-main { display: block !important; overflow: visible !important; height: auto !important; padding-bottom: 4.5rem; }
+      #sidebar-section {
+        width: 100% !important; height: auto !important; overflow: visible !important;
+        border-right: none !important;
+      }
+
+      /* Les deux panneaux (outils / liste) s'affichent selon l'onglet actif.
+         Par défaut cachés ; le body.mv-* révèle le bon. */
+      #panel-tools, #panel-list { display: none !important; }
+      #panel-tools { max-height: none !important; overflow: visible !important; }
+      #panel-list  { display: none !important; height: auto !important; overflow: visible !important; }
+
+      body.mv-tools #panel-tools { display: block !important; }
+      body.mv-list  #panel-list  { display: flex !important; }
+
+      /* La liste des adresses s'étire, pas de mini-cadre : c'est la PAGE qui scrolle */
+      body.mv-list #street-list-container {
+        overflow: visible !important; flex: none !important; height: auto !important;
+      }
+      #sidebar-footer { position: static; }
+
+      /* Onglet Carte : la carte prend tout l'espace entre header et barre du bas */
+      #map-section { display: none !important; }
+      body.mv-map #map-section {
+        display: block !important;
+        position: fixed; top: 4rem; left: 0; right: 0; bottom: 4rem;
+        height: auto !important;
+      }
+      body.mv-map #app-main { padding-bottom: 0; }
+      #map { height: 100% !important; min-height: 300px; }
+    }
+
     @media print {
       body { background: white !important; color: black !important; font-size: 11px; height: auto !important; }
       .no-print { display: none !important; }
@@ -55,71 +94,83 @@
     </div>
   </header>
 
-  <main class="flex-1 flex flex-col md:flex-row overflow-hidden pb-16 md:pb-0 no-print">
+  <main id="app-main" class="flex-1 flex flex-col md:flex-row overflow-hidden pb-16 md:pb-0 no-print">
 
     <section id="sidebar-section" class="w-full md:w-[460px] bg-white border-r border-slate-200 flex flex-col h-full shadow-inner z-10 overflow-hidden">
 
-      <div class="p-3.5 border-b border-slate-100 bg-slate-50 shrink-0">
-        <label class="block text-[10px] font-extrabold text-slate-500 uppercase tracking-wider mb-1.5">Statut des colis</label>
-        <div class="grid grid-cols-3 gap-1 bg-slate-200 p-1 rounded-lg">
-          <button id="btn-filter-all" onclick="setFilter('all')" class="py-1 text-xs font-bold rounded-md transition-all bg-white text-indigo-950 shadow">Toutes</button>
-          <button id="btn-filter-todo" onclick="setFilter('todo')" class="py-1 text-xs font-bold rounded-md transition-all text-slate-600 hover:text-indigo-950">À faire</button>
-          <button id="btn-filter-done" onclick="setFilter('done')" class="py-1 text-xs font-bold rounded-md transition-all text-slate-600 hover:text-indigo-950">Livrées</button>
-        </div>
-      </div>
+      <!-- ===================== PANNEAU "AJOUTER / OUTILS" ===================== -->
+      <!-- Sur mobile : affiché quand l'onglet "Ajouter" est actif. Sur desktop : toujours visible en haut. -->
+      <div id="panel-tools" class="md:block overflow-y-auto">
 
-      <div class="p-3.5 border-b border-slate-100 bg-white shrink-0">
-        <div class="flex justify-between items-center mb-1">
-          <label class="block text-[10px] font-extrabold text-slate-500 uppercase tracking-wider">Rayon de marche max du véhicule</label>
-          <span id="radius-val" class="text-xs font-extrabold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full">80 m</span>
-        </div>
-        <input type="range" id="walk-radius" min="30" max="250" step="10" value="80" oninput="updateWalkRadius(this.value)" class="w-full accent-indigo-600 cursor-pointer">
-        <p class="text-[10px] text-slate-400 mt-1">Regroupe les adresses proches pour stationner et livrer à pied.</p>
-      </div>
-
-      <div class="p-3 border-b border-slate-100 bg-slate-50/50 grid grid-cols-2 gap-2 shrink-0">
-        <button onclick="optimizeTour()" class="col-span-2 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs py-2 px-3 rounded-lg flex items-center justify-center gap-1.5 transition-all shadow-sm">
-          ⚡ Calculer le parcours optimal (depuis le dépôt)
-        </button>
-        <button onclick="openFullTourInGoogleMaps()" class="col-span-2 bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-xs py-2 px-3 rounded-lg flex items-center justify-center gap-1.5 transition-all shadow-sm">
-          🧭 Ouvrir toute la tournée dans Google Maps
-        </button>
-        <button onclick="clearAllDeliveries()" class="col-span-2 border border-red-300 text-red-600 hover:bg-red-50 font-bold text-[10px] py-1.5 px-2 rounded-md transition-all text-center">🗑️ Tout vider et recommencer</button>
-        <p id="route-status" class="col-span-2 text-[10px] text-slate-400 text-center mt-0.5"></p>
-      </div>
-
-      <div class="px-3.5 py-3 border-b border-slate-100 bg-white shrink-0">
-        <label class="block text-[10px] font-extrabold text-slate-500 uppercase tracking-wider mb-1.5">Ajouter une adresse précise</label>
-        <div class="flex gap-2">
-          <input type="text" id="add-street-input" placeholder="Ex: 14 Rue des Turcies, Orléans..." class="flex-1 bg-white border border-slate-300 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500">
-          <button onclick="addNewAddress()" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs px-3 rounded-lg transition-all shrink-0">Ajouter</button>
-        </div>
-        <p id="geocode-error" class="text-red-500 text-[10px] mt-1 hidden"></p>
-      </div>
-
-      <!-- Import par OCR de screenshots -->
-      <div class="px-3.5 py-3 border-b border-slate-100 bg-indigo-50/40 shrink-0">
-        <label class="block text-[10px] font-extrabold text-indigo-700 uppercase tracking-wider mb-1.5">📸 Lire des screenshots (OCR)</label>
-        <label id="ocr-dropzone" for="ocr-file-input"
-               class="block border-2 border-dashed border-indigo-300 rounded-lg px-3 py-4 text-center cursor-pointer hover:bg-indigo-50 transition-all">
-          <span class="text-xl block">🖼️</span>
-          <span class="text-[11px] font-bold text-indigo-700">Déposer ou choisir des images</span>
-          <span class="block text-[9px] text-slate-400 mt-0.5">Photos d'écran de la liste des colis (plusieurs possibles)</span>
-        </label>
-        <input type="file" id="ocr-file-input" accept="image/*" multiple class="hidden" onchange="handleOcrFiles(this.files)">
-        <div id="ocr-progress" class="hidden mt-2">
-          <div class="w-full bg-slate-200 rounded-full h-1.5 overflow-hidden">
-            <div id="ocr-bar" class="bg-indigo-600 h-1.5 rounded-full transition-all" style="width:0%"></div>
+        <!-- Import OCR (action principale, mise en avant) -->
+        <div class="px-3.5 py-3 border-b border-slate-100 bg-indigo-50/40">
+          <label class="block text-[10px] font-extrabold text-indigo-700 uppercase tracking-wider mb-1.5">📸 Lire des screenshots (OCR)</label>
+          <label id="ocr-dropzone" for="ocr-file-input"
+                 class="block border-2 border-dashed border-indigo-300 rounded-lg px-3 py-5 text-center cursor-pointer hover:bg-indigo-50 transition-all">
+            <span class="text-2xl block">🖼️</span>
+            <span class="text-xs font-bold text-indigo-700">Déposer ou choisir des images</span>
+            <span class="block text-[9px] text-slate-400 mt-0.5">Photos d'écran de la liste des colis (plusieurs possibles)</span>
+          </label>
+          <input type="file" id="ocr-file-input" accept="image/*" multiple class="hidden" onchange="handleOcrFiles(this.files)">
+          <div id="ocr-progress" class="hidden mt-2">
+            <div class="w-full bg-slate-200 rounded-full h-1.5 overflow-hidden">
+              <div id="ocr-bar" class="bg-indigo-600 h-1.5 rounded-full transition-all" style="width:0%"></div>
+            </div>
+            <p id="ocr-progress-text" class="text-[10px] text-slate-500 mt-1"></p>
           </div>
-          <p id="ocr-progress-text" class="text-[10px] text-slate-500 mt-1"></p>
+        </div>
+
+        <!-- Ajout manuel d'une adresse -->
+        <div class="px-3.5 py-3 border-b border-slate-100 bg-white">
+          <label class="block text-[10px] font-extrabold text-slate-500 uppercase tracking-wider mb-1.5">Ou ajouter une adresse</label>
+          <div class="flex gap-2">
+            <input type="text" id="add-street-input" placeholder="Ex: 14 Rue des Carmes, Orléans..." class="flex-1 bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+            <button onclick="addNewAddress()" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs px-3 rounded-lg transition-all shrink-0">Ajouter</button>
+          </div>
+          <p id="geocode-error" class="text-red-500 text-[10px] mt-1 hidden"></p>
+        </div>
+
+        <!-- Actions principales -->
+        <div class="p-3 border-b border-slate-100 bg-slate-50/50 space-y-2">
+          <button onclick="optimizeTour()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-sm py-2.5 px-3 rounded-lg flex items-center justify-center gap-1.5 transition-all shadow-sm">
+            ⚡ Calculer le parcours optimal
+          </button>
+          <button onclick="openFullTourInGoogleMaps()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-sm py-2.5 px-3 rounded-lg flex items-center justify-center gap-1.5 transition-all shadow-sm">
+            🧭 Ouvrir dans Google Maps
+          </button>
+          <button onclick="clearAllDeliveries()" class="w-full border border-red-300 text-red-600 hover:bg-red-50 font-bold text-xs py-2 px-2 rounded-md transition-all text-center">🗑️ Tout vider et recommencer</button>
+          <p id="route-status" class="text-[10px] text-slate-400 text-center"></p>
+        </div>
+
+        <!-- Réglage rayon de marche (secondaire, en bas) -->
+        <div class="p-3.5 border-b border-slate-100 bg-white">
+          <div class="flex justify-between items-center mb-1">
+            <label class="block text-[10px] font-extrabold text-slate-500 uppercase tracking-wider">Rayon de marche (regroupement)</label>
+            <span id="radius-val" class="text-xs font-extrabold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full">80 m</span>
+          </div>
+          <input type="range" id="walk-radius" min="30" max="250" step="10" value="80" oninput="updateWalkRadius(this.value)" class="w-full accent-indigo-600 cursor-pointer">
+          <p class="text-[10px] text-slate-400 mt-1">Regroupe les adresses proches pour stationner et livrer à pied.</p>
         </div>
       </div>
 
-      <div class="flex-1 overflow-y-auto px-3.5 py-2" id="street-list-container"></div>
+      <!-- ===================== PANNEAU "TOURNÉE" (liste) ===================== -->
+      <!-- Sur mobile : affiché quand l'onglet "Tournée" est actif. Sur desktop : sous les outils. -->
+      <div id="panel-list" class="flex-1 flex flex-col overflow-hidden min-h-0">
+        <!-- Filtre de statut, compact, collé en haut de la liste -->
+        <div class="px-3 pt-2.5 pb-2 border-b border-slate-100 bg-slate-50 shrink-0">
+          <div class="grid grid-cols-3 gap-1 bg-slate-200 p-1 rounded-lg">
+            <button id="btn-filter-all" onclick="setFilter('all')" class="py-1.5 text-xs font-bold rounded-md transition-all bg-white text-indigo-950 shadow">Toutes</button>
+            <button id="btn-filter-todo" onclick="setFilter('todo')" class="py-1.5 text-xs font-bold rounded-md transition-all text-slate-600 hover:text-indigo-950">À faire</button>
+            <button id="btn-filter-done" onclick="setFilter('done')" class="py-1.5 text-xs font-bold rounded-md transition-all text-slate-600 hover:text-indigo-950">Livrées</button>
+          </div>
+        </div>
 
-      <div class="p-3 border-t border-slate-200 bg-slate-50 text-[11px] text-slate-500 flex justify-between items-center shrink-0">
-        <span id="tour-stats" class="font-medium">0 adresses</span>
-        <span class="text-indigo-600 font-bold">Zones de livraison</span>
+        <div class="flex-1 overflow-y-auto px-3.5 py-2" id="street-list-container"></div>
+
+        <div id="sidebar-footer" class="p-3 border-t border-slate-200 bg-slate-50 text-[11px] text-slate-500 flex justify-between items-center shrink-0">
+          <span id="tour-stats" class="font-medium">0 adresses</span>
+          <span class="text-indigo-600 font-bold">Zones de livraison</span>
+        </div>
       </div>
     </section>
 
@@ -146,12 +197,15 @@
     </div>
   </div>
 
-  <div class="fixed bottom-0 left-0 right-0 h-16 bg-white border-t border-slate-200 flex justify-around items-center z-[2000] md:hidden no-print shrink-0 shadow-lg">
-    <button id="btn-mview-list" onclick="switchMobileView('list')" class="flex flex-col items-center justify-center gap-1 text-indigo-950 font-black text-[11px] w-1/2 h-full border-r border-slate-100">
-      <span class="text-xl">📋</span><span>Feuille de route</span>
+  <div class="fixed bottom-0 left-0 right-0 h-16 bg-white border-t border-slate-200 flex justify-around items-center z-[2000] md:hidden no-print shadow-lg">
+    <button id="btn-mview-tools" onclick="switchMobileView('tools')" class="flex flex-col items-center justify-center gap-0.5 text-slate-400 font-medium text-[11px] w-1/3 h-full border-r border-slate-100">
+      <span class="text-xl">➕</span><span>Ajouter</span>
     </button>
-    <button id="btn-mview-map" onclick="switchMobileView('map')" class="flex flex-col items-center justify-center gap-1 text-slate-400 font-medium text-[11px] w-1/2 h-full">
-      <span class="text-xl">🗺️</span><span>Carte interactive</span>
+    <button id="btn-mview-list" onclick="switchMobileView('list')" class="flex flex-col items-center justify-center gap-0.5 text-indigo-950 font-black text-[11px] w-1/3 h-full border-r border-slate-100">
+      <span class="text-xl">📋</span><span>Tournée</span>
+    </button>
+    <button id="btn-mview-map" onclick="switchMobileView('map')" class="flex flex-col items-center justify-center gap-0.5 text-slate-400 font-medium text-[11px] w-1/3 h-full">
+      <span class="text-xl">🗺️</span><span>Carte</span>
     </button>
   </div>
 
@@ -231,10 +285,12 @@
         optimizeTour();
         const when = saved.savedAt ? new Date(saved.savedAt).toLocaleString("fr-FR", {day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}) : "";
         if (statusEl) statusEl.textContent = `💾 Tournée restaurée (${saved.deliveries.length} adresses${when ? ", " + when : ""}).`;
+        currentMobileView = 'list';  // on a des adresses -> on montre la tournée
       } else {
         currentStreets = [];
         recomputeClustersAndRender();
         if (statusEl) statusEl.textContent = "👋 Tournée vide — importe tes screenshots (📸) ou ajoute une adresse pour commencer.";
+        currentMobileView = 'tools'; // tournée vide -> on montre l'onglet Ajouter
       }
       storageReady = true; // à partir d'ici, tout changement est sauvegardé
       initResponsiveView();
@@ -245,28 +301,40 @@
       if (window.innerWidth < 768) {
         switchMobileView(currentMobileView);
       } else {
+        // Desktop : tout est visible, le CSS reprend la main
+        document.body.classList.remove('mv-tools', 'mv-list', 'mv-map');
         document.getElementById("sidebar-section").classList.remove("hidden");
         document.getElementById("map-section").classList.remove("hidden");
         if (map) map.invalidateSize();
       }
     }
 
+    // 3 onglets mobiles : 'tools' (ajouter/outils), 'list' (tournée), 'map' (carte).
+    // Le body porte une classe mv-* ; le CSS montre/masque les bons panneaux.
     function switchMobileView(targetView) {
       currentMobileView = targetView;
-      const sidebar = document.getElementById("sidebar-section");
-      const mapSec = document.getElementById("map-section");
-      const btnList = document.getElementById("btn-mview-list");
-      const btnMap = document.getElementById("btn-mview-map");
-      if (targetView === 'list') {
-        sidebar.classList.remove("hidden"); mapSec.classList.add("hidden");
-        btnList.className = "flex flex-col items-center justify-center gap-1 text-indigo-950 font-black text-[11px] w-1/2 h-full border-r border-slate-100";
-        btnMap.className = "flex flex-col items-center justify-center gap-1 text-slate-400 font-medium text-[11px] w-1/2 h-full";
-      } else {
-        sidebar.classList.add("hidden"); mapSec.classList.remove("hidden"); mapSec.classList.add("block");
-        btnList.className = "flex flex-col items-center justify-center gap-1 text-slate-400 font-medium text-[11px] w-1/2 h-full border-r border-slate-100";
-        btnMap.className = "flex flex-col items-center justify-center gap-1 text-indigo-950 font-black text-[11px] w-1/2 h-full";
+      document.body.classList.remove('mv-tools', 'mv-list', 'mv-map');
+      document.body.classList.add('mv-' + targetView);
+
+      // Style des 3 boutons de la barre du bas
+      const tabs = {
+        tools: document.getElementById("btn-mview-tools"),
+        list:  document.getElementById("btn-mview-list"),
+        map:   document.getElementById("btn-mview-map"),
+      };
+      const active = "flex flex-col items-center justify-center gap-0.5 text-indigo-950 font-black text-[11px] w-1/3 h-full";
+      const idle   = "flex flex-col items-center justify-center gap-0.5 text-slate-400 font-medium text-[11px] w-1/3 h-full";
+      Object.entries(tabs).forEach(([key, btn]) => {
+        if (!btn) return;
+        const border = key !== 'map' ? ' border-r border-slate-100' : '';
+        btn.className = (key === targetView ? active : idle) + border;
+      });
+
+      if (targetView === 'map') {
         setTimeout(() => { if (map) map.invalidateSize(); }, 120);
       }
+      // Remonter en haut du panneau affiché (confort de lecture)
+      window.scrollTo(0, 0);
     }
 
     function initMap() {
@@ -988,6 +1056,8 @@
       optimizeTour();
       const statusEl = document.getElementById("route-status");
       if (statusEl) statusEl.textContent = `✅ ${toAdd.length} adresse(s) ajoutée(s) par OCR`;
+      // Sur mobile, on bascule vers l'onglet Tournée pour voir le résultat
+      if (window.innerWidth < 768) switchMobileView('list');
     }
 
     // Drag & drop sur la zone OCR
