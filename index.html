@@ -189,14 +189,55 @@
     let currentMobileView = 'list';
     let vehicleDistanceKm = 0;
 
+    /* =========================================================
+       Sauvegarde locale (localStorage) — persiste dans le cache
+       du navigateur (Android/PC) même après fermeture de l'onglet.
+       ========================================================= */
+    const STORAGE_KEY = "tournee_colis_orleans_v1";
+    let storageReady = false; // évite de sauvegarder pendant le tout premier chargement
+
+    function saveState() {
+      if (!storageReady) return;
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify({
+          savedAt: new Date().toISOString(),
+          deliveries: currentStreets
+        }));
+      } catch (e) { /* quota plein ou mode privé : on ignore silencieusement */ }
+    }
+
+    function loadState() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (!raw) return null;
+        const data = JSON.parse(raw);
+        if (data && Array.isArray(data.deliveries)) return data;
+      } catch (e) { /* données corrompues : on repart à vide */ }
+      return null;
+    }
+
+    function clearSavedState() {
+      try { localStorage.removeItem(STORAGE_KEY); } catch (e) {}
+    }
+
     window.addEventListener("DOMContentLoaded", () => {
       initMap();
-      // On démarre sur une tournée VIDE : à remplir via OCR (📸) ou saisie manuelle.
-      currentStreets = [];
-      recomputeClustersAndRender();
-      initResponsiveView();
+      // Reprise de la tournée sauvegardée si elle existe, sinon démarrage à vide.
+      const saved = loadState();
       const statusEl = document.getElementById("route-status");
-      if (statusEl) statusEl.textContent = "👋 Tournée vide — importe tes screenshots (📸) ou ajoute une adresse pour commencer.";
+      if (saved && saved.deliveries.length > 0) {
+        currentStreets = saved.deliveries;
+        recomputeClustersAndRender();
+        optimizeTour();
+        const when = saved.savedAt ? new Date(saved.savedAt).toLocaleString("fr-FR", {day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}) : "";
+        if (statusEl) statusEl.textContent = `💾 Tournée restaurée (${saved.deliveries.length} adresses${when ? ", " + when : ""}).`;
+      } else {
+        currentStreets = [];
+        recomputeClustersAndRender();
+        if (statusEl) statusEl.textContent = "👋 Tournée vide — importe tes screenshots (📸) ou ajoute une adresse pour commencer.";
+      }
+      storageReady = true; // à partir d'ici, tout changement est sauvegardé
+      initResponsiveView();
     });
     window.addEventListener("resize", () => initResponsiveView());
 
@@ -333,7 +374,7 @@
       renderAll();
     }
 
-    function renderAll() { renderList(); renderMapElements(); updateStats(); updatePrintView(); }
+    function renderAll() { renderList(); renderMapElements(); updateStats(); updatePrintView(); saveState(); }
 
     function hasEngage(item) { return /ENGAGE/i.test(item.notes || ""); }
 
@@ -575,10 +616,10 @@
 
     function updateNote(idx, val) { currentStreets[idx].notes = val; renderAll(); }
 
-    // --- Tout vider : repartir d'une tournée vide (pour rebâtir via OCR / saisie) ---
+    // --- Tout vider : repartir d'une tournée vide ET effacer la sauvegarde locale ---
     function clearAllDeliveries() {
       if (currentStreets.length > 0 &&
-          !confirm(`Vider toute la tournée ?\n\n${currentStreets.length} adresse(s) seront supprimées.\nTu pourras repartir de zéro (OCR ou ajout manuel).\n\nRecharge la page pour restaurer les adresses de départ.`)) {
+          !confirm(`Vider toute la tournée ?\n\n${currentStreets.length} adresse(s) seront supprimées et la sauvegarde effacée.\nTu pourras repartir de zéro (OCR ou ajout manuel).`)) {
         return;
       }
       currentStreets = [];
@@ -587,9 +628,11 @@
       if (roadRoute) roadRoute.setLatLngs([]);
       if (polylineRoute) polylineRoute.setLatLngs([]);
       lastRoadDistanceKm = null;
-      recomputeClustersAndRender();
+      clearSavedState();              // efface le cache du navigateur
+      recomputeClustersAndRender();  // renderAll ré-écrira un état vide (ou rien si déjà vide)
+      clearSavedState();             // garantit l'effacement même après le save de renderAll
       const statusEl = document.getElementById("route-status");
-      if (statusEl) statusEl.textContent = "🗑️ Tournée vidée — ajoute des adresses (OCR ou manuel) pour recommencer.";
+      if (statusEl) statusEl.textContent = "🗑️ Tournée vidée et sauvegarde effacée.";
       map.setView([DEPOT.lat, DEPOT.lon], 15);
     }
 

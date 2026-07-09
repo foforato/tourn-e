@@ -17,7 +17,9 @@ Ouvre la page (GitHub Pages) sur ton téléphone :
 > ⚠️ **Astuce OCR** : si l'OCR renvoie du charabia, une extension du navigateur
 > interfère. Utilise la **navigation privée** ou désactive les extensions sur la page.
 
-> ℹ️ La tournée n'est **pas sauvegardée** : fermer l'onglet remet à zéro.
+> 💾 La tournée est **sauvegardée automatiquement** dans le navigateur (localStorage) :
+> tu peux fermer et rouvrir, elle est restaurée (adresses + colis livrés + notes).
+> Le bouton **🗑️ Tout vider** efface cette sauvegarde.
 
 ## Technique
 
