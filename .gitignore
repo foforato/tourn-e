@@ -1,0 +1,12 @@
+# Données personnelles — NE PAS publier
+*.jpeg
+*.jpg
+*.png
+deliveries.json
+
+# Ne garder qu'un seul HTML publié (index.html sert GitHub Pages)
+tournee-colis-orleans.html
+
+# Divers
+.DS_Store
+*.log
