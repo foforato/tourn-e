@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Tournée Colis — Orléans Centre (RC Multiservices)</title>
+  <title>Tournée Colis — Orléans</title>
 
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -84,7 +84,7 @@
       <span class="text-2xl">📦</span>
       <div>
         <h1 class="text-base font-extrabold leading-tight">Tournée Colis — Orléans Centre</h1>
-        <p class="text-[10px] text-indigo-200">Départ : RC Multiservices, 13 Rue des Carmes • Optimisation par proximité</p>
+        <p class="text-[10px] text-indigo-200">Départ : 2 Rue Fernand et Marcelle Rivière, Fleury-les-Aubrais • Optimisation par proximité</p>
       </div>
     </div>
     <div class="flex items-center gap-2">
@@ -212,7 +212,7 @@
   <div class="print-only p-8">
     <div class="border-b-2 border-slate-900 pb-3 mb-5">
       <h1 class="text-2xl font-black text-slate-900 uppercase">Feuille de Route Optimisée</h1>
-      <p class="text-xs text-slate-500 mt-0.5">Départ RC Multiservices, 13 Rue des Carmes • Générée le <span id="print-date"></span></p>
+      <p class="text-xs text-slate-500 mt-0.5">Départ 2 Rue Fernand et Marcelle Rivière, Fleury-les-Aubrais • Générée le <span id="print-date"></span></p>
       <div class="grid grid-cols-4 gap-4 mt-3 text-xs font-semibold">
         <div class="bg-slate-100 p-2 rounded">Adresses à livrer : <span id="print-count" class="font-bold"></span></div>
         <div class="bg-slate-100 p-2 rounded">Points d'arrêt véhicule : <span id="print-hubs" class="font-bold"></span></div>
@@ -229,7 +229,7 @@
   <script>
     "use strict";
 
-    const DEPOT = {"name": "RC MULTISERVICES (Point Relais / Dépôt)", "street": "Rue des Carmes", "number": "13", "lat": 47.901572, "lon": 1.90032, "notes": "Récupération colis 09:00 — Lun-Sam 9h-18h", "depot": true};
+    const DEPOT = {"name": "Départ / Dépôt", "street": "Rue Fernand et Marcelle Rivière", "number": "2", "lat": 47.938095, "lon": 1.896244, "notes": "2 Rue Fernand et Marcelle Rivière, 45400 Fleury-les-Aubrais", "depot": true};
     // Tournée vide au démarrage : les adresses arrivent via OCR (📸) ou saisie manuelle.
     const INITIAL_DELIVERIES = [];
 
