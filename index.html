@@ -12,13 +12,16 @@
   <script src="https://unpkg.com/tesseract.js@5/dist/tesseract.min.js"></script>
 
   <style>
-    /* ---------- DESKTOP (≥ 768px) : 2 colonnes, hauteur d'écran fixe ---------- */
-    @media (min-width: 768px) {
+    /* ---------- GRAND ÉCRAN (≥ 1024px) : 2 colonnes, hauteur d'écran fixe ----------
+       Concerne : desktop + iPad en PAYSAGE (1180px). */
+    @media (min-width: 1024px) {
       html, body { height: 100vh; height: 100dvh; overflow: hidden; }
     }
 
-    /* ---------- MOBILE (< 768px) : onglets, page qui scrolle naturellement ---------- */
-    @media (max-width: 767px) {
+    /* ---------- ONGLETS (< 1024px) : mobile ET iPad en PORTRAIT (820px) ----------
+       Page qui scrolle naturellement, navigation par onglets Ajouter/Tournée/Carte.
+       On force ce mode même dans la plage 768–1023px où Tailwind md: voudrait 2 colonnes. */
+    @media (max-width: 1023px) {
       html, body {
         height: auto !important;
         min-height: 100dvh;
@@ -26,14 +29,16 @@
         -webkit-overflow-scrolling: touch;
       }
       body { display: block !important; }
-      #app-main { display: block !important; overflow: visible !important; height: auto !important; padding-bottom: 4.5rem; }
+      /* Neutralise les classes Tailwind md: (flex-row, largeur fixe) sur cette plage */
+      #app-main { display: block !important; flex-direction: column !important; overflow: visible !important; height: auto !important; padding-bottom: 4.5rem; }
       #sidebar-section {
         width: 100% !important; height: auto !important; overflow: visible !important;
         border-right: none !important;
       }
+      /* La barre d'onglets du bas (Tailwind md:hidden) doit rester visible ici */
+      #mobile-tabbar { display: flex !important; }
 
-      /* Les deux panneaux (outils / liste) s'affichent selon l'onglet actif.
-         Par défaut cachés ; le body.mv-* révèle le bon. */
+      /* Les deux panneaux (outils / liste) s'affichent selon l'onglet actif. */
       #panel-tools, #panel-list { display: none !important; }
       #panel-tools { max-height: none !important; overflow: visible !important; }
       #panel-list  { display: none !important; height: auto !important; overflow: visible !important; }
@@ -41,13 +46,13 @@
       body.mv-tools #panel-tools { display: block !important; }
       body.mv-list  #panel-list  { display: flex !important; }
 
-      /* La liste des adresses s'étire, pas de mini-cadre : c'est la PAGE qui scrolle */
+      /* La liste s'étire : c'est la PAGE qui scrolle */
       body.mv-list #street-list-container {
         overflow: visible !important; flex: none !important; height: auto !important;
       }
       #sidebar-footer { position: static; }
 
-      /* Onglet Carte : la carte prend tout l'espace entre header et barre du bas */
+      /* Onglet Carte : plein espace entre header et barre du bas (Tailwind hidden md:block neutralisé) */
       #map-section { display: none !important; }
       body.mv-map #map-section {
         display: block !important;
@@ -197,7 +202,7 @@
     </div>
   </div>
 
-  <div class="fixed bottom-0 left-0 right-0 h-16 bg-white border-t border-slate-200 flex justify-around items-center z-[2000] md:hidden no-print shadow-lg">
+  <div id="mobile-tabbar" class="fixed bottom-0 left-0 right-0 h-16 bg-white border-t border-slate-200 flex justify-around items-center z-[2000] lg:hidden no-print shadow-lg">
     <button id="btn-mview-tools" onclick="switchMobileView('tools')" class="flex flex-col items-center justify-center gap-0.5 text-slate-400 font-medium text-[11px] w-1/3 h-full border-r border-slate-100">
       <span class="text-xl">➕</span><span>Ajouter</span>
     </button>
@@ -298,10 +303,11 @@
     window.addEventListener("resize", () => initResponsiveView());
 
     function initResponsiveView() {
-      if (window.innerWidth < 768) {
+      // < 1024px = mode onglets (mobile + iPad portrait) ; ≥ 1024px = 2 colonnes
+      if (window.innerWidth < 1024) {
         switchMobileView(currentMobileView);
       } else {
-        // Desktop : tout est visible, le CSS reprend la main
+        // Grand écran : tout est visible, le CSS reprend la main
         document.body.classList.remove('mv-tools', 'mv-list', 'mv-map');
         document.getElementById("sidebar-section").classList.remove("hidden");
         document.getElementById("map-section").classList.remove("hidden");
@@ -1056,8 +1062,8 @@
       optimizeTour();
       const statusEl = document.getElementById("route-status");
       if (statusEl) statusEl.textContent = `✅ ${toAdd.length} adresse(s) ajoutée(s) par OCR`;
-      // Sur mobile, on bascule vers l'onglet Tournée pour voir le résultat
-      if (window.innerWidth < 768) switchMobileView('list');
+      // En mode onglets (mobile/iPad portrait), on bascule vers Tournée pour voir le résultat
+      if (window.innerWidth < 1024) switchMobileView('list');
     }
 
     // Drag & drop sur la zone OCR
