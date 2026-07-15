@@ -1,1086 +1,513 @@
-<!DOCTYPE html>
+
+<!doctype html>
 <html lang="fr">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Tournée Colis — Orléans</title>
-
-  <script src="https://cdn.tailwindcss.com"></script>
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <!-- Tesseract.js : OCR dans le navigateur -->
-  <script src="https://unpkg.com/tesseract.js@5/dist/tesseract.min.js"></script>
-
-  <style>
-    /* ---------- GRAND ÉCRAN (≥ 1024px) : 2 colonnes, hauteur d'écran fixe ----------
-       Concerne : desktop + iPad en PAYSAGE (1180px). */
-    @media (min-width: 1024px) {
-      html, body { height: 100vh; height: 100dvh; overflow: hidden; }
-    }
-
-    /* ---------- ONGLETS (< 1024px) : mobile ET iPad en PORTRAIT (820px) ----------
-       Page qui scrolle naturellement, navigation par onglets Ajouter/Tournée/Carte.
-       On force ce mode même dans la plage 768–1023px où Tailwind md: voudrait 2 colonnes. */
-    @media (max-width: 1023px) {
-      html, body {
-        height: auto !important;
-        min-height: 100dvh;
-        overflow-y: auto !important;
-        -webkit-overflow-scrolling: touch;
-      }
-      body { display: block !important; }
-      /* Neutralise les classes Tailwind md: (flex-row, largeur fixe) sur cette plage */
-      #app-main { display: block !important; flex-direction: column !important; overflow: visible !important; height: auto !important; padding-bottom: 4.5rem; }
-      #sidebar-section {
-        width: 100% !important; height: auto !important; overflow: visible !important;
-        border-right: none !important;
-      }
-      /* La barre d'onglets du bas (Tailwind md:hidden) doit rester visible ici */
-      #mobile-tabbar { display: flex !important; }
-
-      /* Les deux panneaux (outils / liste) s'affichent selon l'onglet actif. */
-      #panel-tools, #panel-list { display: none !important; }
-      #panel-tools { max-height: none !important; overflow: visible !important; }
-      #panel-list  { display: none !important; height: auto !important; overflow: visible !important; }
-
-      body.mv-tools #panel-tools { display: block !important; }
-      body.mv-list  #panel-list  { display: flex !important; }
-
-      /* La liste s'étire : c'est la PAGE qui scrolle */
-      body.mv-list #street-list-container {
-        overflow: visible !important; flex: none !important; height: auto !important;
-      }
-      #sidebar-footer { position: static; }
-
-      /* Onglet Carte : plein espace entre header et barre du bas (Tailwind hidden md:block neutralisé) */
-      #map-section { display: none !important; }
-      body.mv-map #map-section {
-        display: block !important;
-        position: fixed; top: 4rem; left: 0; right: 0; bottom: 4rem;
-        height: auto !important;
-      }
-      body.mv-map #app-main { padding-bottom: 0; }
-      #map { height: 100% !important; min-height: 300px; }
-    }
-
-    @media print {
-      body { background: white !important; color: black !important; font-size: 11px; height: auto !important; }
-      .no-print { display: none !important; }
-      .print-only { display: block !important; }
-      .print-card { border: 1px solid #ccc !important; box-shadow: none !important; page-break-inside: avoid; }
-    }
-    .print-only { display: none; }
-    .delivery-badge {
-      display: flex; align-items: center; justify-content: center; border-radius: 50%;
-      color: white; font-weight: 800; font-size: 10px; border: 2px solid white;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.3); transition: all 0.2s ease;
-    }
-    .parking-badge {
-      display: flex; align-items: center; justify-content: center; border-radius: 8px;
-      color: white; font-weight: 900; font-size: 11px; border: 2px solid #1e3a8a;
-      box-shadow: 0 3px 6px rgba(0,0,0,0.4);
-    }
-  </style>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<meta name="theme-color" content="#173b69">
+<title>Tournée colis — Orléans</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+:root{--blue:#173b69;--blue2:#24558f;--green:#087f5b;--red:#c92a2a;--amber:#e67700;--ink:#182230;--muted:#667085;--line:#d9e0e8;--bg:#f4f6f8;--card:#fff}
+*{box-sizing:border-box}html,body{margin:0;min-height:100%;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:var(--ink);background:var(--bg)}
+button,input{font:inherit}button{cursor:pointer}.app{max-width:760px;margin:auto;min-height:100vh;background:var(--bg)}
+header{position:sticky;top:0;z-index:20;background:var(--blue);color:white;padding:13px 15px;box-shadow:0 2px 10px #0002}
+header h1{font-size:18px;margin:0}header p{font-size:12px;margin:3px 0 0;color:#dbeafe}
+main{padding:12px 12px 88px}.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:13px;margin-bottom:11px;box-shadow:0 2px 6px #1020300a}
+.title{font-weight:800;font-size:14px;margin:0 0 10px}.small{font-size:12px;color:var(--muted)}
+.controls{display:grid;grid-template-columns:1fr auto;gap:9px;align-items:end}.controls label{display:block;font-size:12px;font-weight:750;margin-bottom:6px}
+.range-line{display:flex;gap:10px;align-items:center}.range-line input{width:100%}.radius{min-width:58px;text-align:center;background:#e8eff8;color:var(--blue);font-weight:800;padding:5px 7px;border-radius:999px}
+.btn{border:0;border-radius:10px;padding:11px 13px;font-weight:800}.btn-primary{background:var(--blue);color:white}.btn-secondary{background:#eaf0f7;color:var(--blue)}.btn-danger{background:#fff0f0;color:var(--red);border:1px solid #ffc9c9}.btn-green{background:var(--green);color:white}.btn:disabled{opacity:.5;cursor:not-allowed}
+.add-row{display:grid;grid-template-columns:1fr auto;gap:8px}.text-input{width:100%;border:1px solid #cbd5e1;border-radius:10px;padding:10px 11px;background:white;min-width:0}.text-input:focus{outline:2px solid #90b4dc;border-color:var(--blue2)}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:7px}.stat{background:#eef3f8;border-radius:10px;padding:9px 6px;text-align:center}.stat b{display:block;font-size:18px;color:var(--blue)}.stat span{font-size:10px;color:var(--muted)}
+.dirty{display:none;background:#fff4e6;border:1px solid #ffd8a8;color:#8a4b08;border-radius:11px;padding:10px 12px;font-size:12px;font-weight:700;margin-bottom:11px}.dirty.show{display:block}
+.segment{border:1px solid #b8cbe0;border-radius:12px;overflow:hidden;margin-bottom:9px}.segment-head{background:#edf4fb;padding:10px 11px;display:flex;justify-content:space-between;gap:8px;align-items:center}.segment-head b{font-size:13px}.segment-head span{font-size:11px;color:var(--muted)}.segment .btn{display:block;width:calc(100% - 18px);margin:9px;padding:10px;text-align:center;text-decoration:none}
+.stop{background:white;border:1px solid var(--line);border-radius:14px;margin-bottom:10px;overflow:hidden}.stop-head{padding:11px 12px;background:var(--blue);color:white;display:flex;justify-content:space-between;gap:10px;align-items:center}.stop-head.done{background:#748094}.stop-title{font-size:14px;font-weight:850}.stop-sub{font-size:11px;color:#dbeafe;margin-top:2px}.stop-count{white-space:nowrap;background:#ffffff24;border-radius:999px;padding:4px 8px;font-size:11px;font-weight:800}
+.delivery{display:grid;grid-template-columns:28px 1fr auto;gap:9px;align-items:start;padding:11px;border-top:1px solid #edf0f3}.delivery:first-child{border-top:0}.delivery.checked{opacity:.52;background:#f5f6f7}.delivery input[type=checkbox]{width:20px;height:20px;margin:2px 0;accent-color:var(--green)}.address{font-weight:800;font-size:13px;line-height:1.25}.notes{font-size:11px;color:var(--muted);margin-top:4px;line-height:1.35}.engage{color:var(--red);font-weight:800}.delete{border:0;background:transparent;color:#9b1c1c;font-size:18px;padding:0 3px;line-height:1}.stop-actions{padding:9px 11px;border-top:1px solid #edf0f3;background:#f8fafc;display:flex;justify-content:flex-end}.stop-actions button{border:0;background:transparent;color:var(--green);font-size:12px;font-weight:800}
+.empty{text-align:center;padding:30px 15px;color:var(--muted)}details summary{cursor:pointer;font-size:12px;font-weight:800;color:var(--muted)}.delivered-list{margin-top:8px;font-size:12px;color:var(--muted)}.delivered-item{padding:7px 0;border-top:1px solid #edf0f3;display:flex;justify-content:space-between;gap:8px}.restore{border:0;background:transparent;color:var(--blue);font-weight:700;font-size:11px}
+.bottom{position:fixed;bottom:0;left:0;right:0;z-index:30;background:white;border-top:1px solid var(--line);padding:9px 12px calc(9px + env(safe-area-inset-bottom));box-shadow:0 -3px 12px #0001}.bottom-inner{max-width:736px;margin:auto;display:grid;grid-template-columns:1fr auto auto;gap:7px}.bottom .btn-primary{font-size:13px;padding:13px 8px}.bottom .btn-green,.bottom .btn-secondary{font-size:12px;padding:13px 10px;white-space:nowrap}.top-link{font-size:12px;color:white;background:#ffffff22;border:1px solid #ffffff44;border-radius:8px;padding:6px 8px;text-decoration:none;white-space:nowrap}
+.notice{font-size:11px;color:var(--muted);line-height:1.4;margin-top:8px}.maps-title-row{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:10px}.maps-title-row .title{margin:0}.copy-status{min-height:18px;font-size:11px;color:var(--green);font-weight:750;margin:5px 0}.error{color:var(--red);font-size:11px;margin-top:6px}.hidden{display:none!important}
+.start-row{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;background:#eef3f8;border-radius:10px;padding:8px 10px;margin-bottom:10px}
+.start-info{display:flex;align-items:center;gap:7px;font-size:12px;font-weight:750;color:var(--blue)}
+.start-dot{width:9px;height:9px;border-radius:50%;background:var(--green);flex-shrink:0}
+.start-info.is-depot .start-dot{background:var(--blue2)}
+#mapWrap{border-radius:12px;overflow:hidden;border:1px solid var(--line)}
+#map{height:280px;width:100%;background:#e8eff8}
+.leaflet-div-icon{background:transparent;border:0}
+.map-pin{width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:12px;color:#fff;border:2px solid #fff;box-shadow:0 1px 4px #0004;background:#173b69}
+.map-pin.depot{width:30px;height:30px;font-size:15px;background:#087f5b}
+.map-pin.current{width:30px;height:30px;font-size:15px;background:#1c64f2;animation:pulse 1.6s ease-in-out infinite}
+@keyframes pulse{0%,100%{box-shadow:0 1px 4px #0004,0 0 0 0 #1c64f255}50%{box-shadow:0 1px 4px #0004,0 0 0 8px #1c64f200}}
+@media(min-width:600px){main{padding:16px 16px 92px}.stop-head{padding:12px 14px}.delivery{padding:12px 14px}.controls{grid-template-columns:1fr 180px}.bottom-inner{grid-template-columns:1fr 170px 170px}#map{height:400px}}
+@media print{header,.bottom,.no-print{display:none!important}main{padding:0}.app{max-width:none}.card,.stop{box-shadow:none;break-inside:avoid}.delivery{padding:6px}.stop-actions{display:none}#mapWrap{display:none!important}}
+body.fullmap-mode{background:#e8eff8}
+body.fullmap-mode .app{max-width:none}
+body.fullmap-mode header p{display:none}
+body.fullmap-mode main{padding:0}
+body.fullmap-mode main>section,body.fullmap-mode #dirtyBanner{display:none!important}
+body.fullmap-mode #mapCard{display:block!important;margin:0;border:0;border-radius:0;box-shadow:none;padding:0;background:transparent}
+body.fullmap-mode #mapWrap{display:block!important;border:0;border-radius:0}
+body.fullmap-mode #map{height:calc(100vh - 54px)}
+body.fullmap-mode .start-row,body.fullmap-mode #locError,body.fullmap-mode #toggleMapBtn,body.fullmap-mode #mapEmptyNotice{display:none!important}
+body.fullmap-mode .bottom{display:none!important}
+</style>
 </head>
-<body class="bg-slate-50 text-slate-900 font-sans antialiased overflow-hidden h-screen flex flex-col">
-
-  <header class="bg-indigo-950 text-white shadow-md px-4 py-3 flex justify-between items-center no-print shrink-0 h-16">
-    <div class="flex items-center gap-3">
-      <span class="text-2xl">📦</span>
+<body>
+<div class="app">
+<header>
+  <div style="display:flex;justify-content:space-between;gap:10px;align-items:center">
+    <div><h1>📦 Tournée colis — Orléans</h1><p>Ordre calculé depuis le dépôt • Maps démarre depuis votre position actuelle • version corrigée</p></div>
+    <a class="top-link" href="#maps-links">Liens Maps</a>
+  </div>
+</header>
+<main>
+  <section class="card">
+    <h2 class="title">Réglage du regroupement</h2>
+    <div class="controls">
       <div>
-        <h1 class="text-base font-extrabold leading-tight">Tournée Colis — Orléans Centre</h1>
-        <p class="text-[10px] text-indigo-200">Départ : 2 Rue Fernand et Marcelle Rivière, Fleury-les-Aubrais • Optimisation par proximité</p>
+        <label for="radius">Distance maximale à pied depuis un arrêt</label>
+        <div class="range-line"><input id="radius" type="range" min="0" max="300" step="10" value="20"><span id="radiusValue" class="radius">20 m</span></div>
+      </div>
+      <button id="printBtn" class="btn btn-secondary no-print">Imprimer</button>
+    </div>
+    <p class="notice">À 20 m par défaut, seules les adresses très proches sont regroupées sous le même arrêt. À 0 m, chaque adresse devient un arrêt distinct.</p>
+  </section>
+
+  <section class="card no-print">
+    <h2 class="title">Ajouter une adresse</h2>
+    <div class="add-row"><input id="newAddress" class="text-input" placeholder="Ex. 12 rue Bannier, 45000 Orléans"><button id="addBtn" class="btn btn-secondary">Ajouter</button></div>
+    <div id="addError" class="error hidden"></div>
+  </section>
+
+  <section class="card">
+    <div class="stats">
+      <div class="stat"><b id="remainingCount">0</b><span>colis à livrer</span></div>
+      <div class="stat"><b id="stopCount">0</b><span>arrêts véhicule</span></div>
+      <div class="stat"><b id="segmentCount">0</b><span>liens Google Maps</span></div>
+    </div>
+  </section>
+
+  <section id="mapCard" class="card no-print">
+    <div class="maps-title-row">
+      <h2 class="title">Carte</h2>
+      <button id="toggleMapBtn" class="btn btn-secondary" style="padding:8px 10px;font-size:11px">🗺️ Afficher la carte</button>
+    </div>
+    <div class="start-row">
+      <div class="start-info"><span class="start-dot"></span><span id="startLabel">Départ : dépôt (Fleury-les-Aubrais)</span></div>
+      <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+        <span id="routingBadge" class="notice" style="margin:0"></span>
+        <button id="useLocationBtn" class="btn btn-secondary" style="padding:8px 10px;font-size:11px">📍 Ma position actuelle</button>
+        <button id="resetDepotBtn" class="btn btn-secondary hidden" style="padding:8px 10px;font-size:11px">↩️ Dépôt</button>
       </div>
     </div>
-    <div class="flex items-center gap-2">
-      <button onclick="window.print()" class="bg-indigo-700 hover:bg-indigo-600 px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all">
-        💾 Imprimer la feuille
-      </button>
+    <div id="locError" class="error hidden"></div>
+    <div id="mapWrap" class="hidden">
+      <div id="map"></div>
     </div>
-  </header>
+    <p id="mapEmptyNotice" class="notice hidden">Ajoutez des adresses pour voir la carte.</p>
+  </section>
 
-  <main id="app-main" class="flex-1 flex flex-col md:flex-row overflow-hidden pb-16 md:pb-0 no-print">
+  <div id="dirtyBanner" class="dirty">⚠️ Des colis ont été cochés ou supprimés. Appuyez sur « Rafraîchir l’itinéraire » pour recalculer les arrêts et les liens Maps.</div>
 
-    <section id="sidebar-section" class="w-full md:w-[460px] bg-white border-r border-slate-200 flex flex-col h-full shadow-inner z-10 overflow-hidden">
-
-      <!-- ===================== PANNEAU "AJOUTER / OUTILS" ===================== -->
-      <!-- Sur mobile : affiché quand l'onglet "Ajouter" est actif. Sur desktop : toujours visible en haut. -->
-      <div id="panel-tools" class="md:block overflow-y-auto">
-
-        <!-- Import OCR (action principale, mise en avant) -->
-        <div class="px-3.5 py-3 border-b border-slate-100 bg-indigo-50/40">
-          <label class="block text-[10px] font-extrabold text-indigo-700 uppercase tracking-wider mb-1.5">📸 Lire des screenshots (OCR)</label>
-          <label id="ocr-dropzone" for="ocr-file-input"
-                 class="block border-2 border-dashed border-indigo-300 rounded-lg px-3 py-5 text-center cursor-pointer hover:bg-indigo-50 transition-all">
-            <span class="text-2xl block">🖼️</span>
-            <span class="text-xs font-bold text-indigo-700">Déposer ou choisir des images</span>
-            <span class="block text-[9px] text-slate-400 mt-0.5">Photos d'écran de la liste des colis (plusieurs possibles)</span>
-          </label>
-          <input type="file" id="ocr-file-input" accept="image/*" multiple class="hidden" onchange="handleOcrFiles(this.files)">
-          <div id="ocr-progress" class="hidden mt-2">
-            <div class="w-full bg-slate-200 rounded-full h-1.5 overflow-hidden">
-              <div id="ocr-bar" class="bg-indigo-600 h-1.5 rounded-full transition-all" style="width:0%"></div>
-            </div>
-            <p id="ocr-progress-text" class="text-[10px] text-slate-500 mt-1"></p>
-          </div>
-        </div>
-
-        <!-- Ajout manuel d'une adresse -->
-        <div class="px-3.5 py-3 border-b border-slate-100 bg-white">
-          <label class="block text-[10px] font-extrabold text-slate-500 uppercase tracking-wider mb-1.5">Ou ajouter une adresse</label>
-          <div class="flex gap-2">
-            <input type="text" id="add-street-input" placeholder="Ex: 14 Rue des Carmes, Orléans..." class="flex-1 bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
-            <button onclick="addNewAddress()" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs px-3 rounded-lg transition-all shrink-0">Ajouter</button>
-          </div>
-          <p id="geocode-error" class="text-red-500 text-[10px] mt-1 hidden"></p>
-        </div>
-
-        <!-- Actions principales -->
-        <div class="p-3 border-b border-slate-100 bg-slate-50/50 space-y-2">
-          <button onclick="optimizeTour()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-sm py-2.5 px-3 rounded-lg flex items-center justify-center gap-1.5 transition-all shadow-sm">
-            ⚡ Calculer le parcours optimal
-          </button>
-          <button onclick="openFullTourInGoogleMaps()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-sm py-2.5 px-3 rounded-lg flex items-center justify-center gap-1.5 transition-all shadow-sm">
-            🧭 Ouvrir dans Google Maps
-          </button>
-          <button onclick="clearAllDeliveries()" class="w-full border border-red-300 text-red-600 hover:bg-red-50 font-bold text-xs py-2 px-2 rounded-md transition-all text-center">🗑️ Tout vider et recommencer</button>
-          <p id="route-status" class="text-[10px] text-slate-400 text-center"></p>
-        </div>
-
-        <!-- Réglage rayon de marche (secondaire, en bas) -->
-        <div class="p-3.5 border-b border-slate-100 bg-white">
-          <div class="flex justify-between items-center mb-1">
-            <label class="block text-[10px] font-extrabold text-slate-500 uppercase tracking-wider">Rayon de marche (regroupement)</label>
-            <span id="radius-val" class="text-xs font-extrabold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full">80 m</span>
-          </div>
-          <input type="range" id="walk-radius" min="30" max="250" step="10" value="80" oninput="updateWalkRadius(this.value)" class="w-full accent-indigo-600 cursor-pointer">
-          <p class="text-[10px] text-slate-400 mt-1">Regroupe les adresses proches pour stationner et livrer à pied.</p>
-        </div>
-      </div>
-
-      <!-- ===================== PANNEAU "TOURNÉE" (liste) ===================== -->
-      <!-- Sur mobile : affiché quand l'onglet "Tournée" est actif. Sur desktop : sous les outils. -->
-      <div id="panel-list" class="flex-1 flex flex-col overflow-hidden min-h-0">
-        <!-- Filtre de statut, compact, collé en haut de la liste -->
-        <div class="px-3 pt-2.5 pb-2 border-b border-slate-100 bg-slate-50 shrink-0">
-          <div class="grid grid-cols-3 gap-1 bg-slate-200 p-1 rounded-lg">
-            <button id="btn-filter-all" onclick="setFilter('all')" class="py-1.5 text-xs font-bold rounded-md transition-all bg-white text-indigo-950 shadow">Toutes</button>
-            <button id="btn-filter-todo" onclick="setFilter('todo')" class="py-1.5 text-xs font-bold rounded-md transition-all text-slate-600 hover:text-indigo-950">À faire</button>
-            <button id="btn-filter-done" onclick="setFilter('done')" class="py-1.5 text-xs font-bold rounded-md transition-all text-slate-600 hover:text-indigo-950">Livrées</button>
-          </div>
-        </div>
-
-        <div class="flex-1 overflow-y-auto px-3.5 py-2" id="street-list-container"></div>
-
-        <div id="sidebar-footer" class="p-3 border-t border-slate-200 bg-slate-50 text-[11px] text-slate-500 flex justify-between items-center shrink-0">
-          <span id="tour-stats" class="font-medium">0 adresses</span>
-          <span class="text-indigo-600 font-bold">Zones de livraison</span>
-        </div>
-      </div>
-    </section>
-
-    <section id="map-section" class="flex-1 relative h-full hidden md:block">
-      <div id="map" class="absolute inset-0 z-0"></div>
-    </section>
-  </main>
-
-  <!-- Modale de revue des adresses détectées par OCR -->
-  <div id="ocr-review-modal" class="hidden fixed inset-0 z-[3000] bg-black/50 flex items-center justify-center p-4 no-print">
-    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[85vh] flex flex-col overflow-hidden">
-      <div class="p-4 border-b border-slate-200 flex justify-between items-center bg-indigo-950 text-white">
-        <div>
-          <h3 class="text-sm font-black">Adresses détectées</h3>
-          <p class="text-[10px] text-indigo-200">Vérifie, corrige, décoche celles à ignorer</p>
-        </div>
-        <button onclick="closeOcrReview()" class="text-white/70 hover:text-white text-xl leading-none">✕</button>
-      </div>
-      <div id="ocr-review-list" class="flex-1 overflow-y-auto p-3 space-y-2"></div>
-      <div class="p-3 border-t border-slate-200 bg-slate-50 flex gap-2">
-        <button onclick="closeOcrReview()" class="flex-1 border border-slate-300 hover:bg-slate-100 text-slate-700 font-bold text-xs py-2 rounded-lg">Annuler</button>
-        <button onclick="confirmOcrReview()" class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs py-2 rounded-lg">✅ Ajouter à la tournée</button>
-      </div>
+  <section id="maps-links" class="card">
+    <div class="maps-title-row">
+      <h2 class="title">Liens Google Maps — dans l’ordre</h2>
+      <button id="copyRouteBtn" class="btn btn-secondary no-print" style="padding:8px 10px;font-size:11px">📋 Copier tout</button>
     </div>
-  </div>
+    <div id="copyStatus" class="copy-status" aria-live="polite"></div>
+    <div id="segments"></div>
+    <p class="notice">Chaque lien utilise votre position actuelle comme départ et contient au maximum 9 arrêts de livraison. Le bouton « Copier tout » copie les liens et le détail de tous les arrêts sans afficher une longue liste à l’écran. Un dernier lien permet le retour au dépôt.</p>
+  </section>
 
-  <div id="mobile-tabbar" class="fixed bottom-0 left-0 right-0 h-16 bg-white border-t border-slate-200 flex justify-around items-center z-[2000] lg:hidden no-print shadow-lg">
-    <button id="btn-mview-tools" onclick="switchMobileView('tools')" class="flex flex-col items-center justify-center gap-0.5 text-slate-400 font-medium text-[11px] w-1/3 h-full border-r border-slate-100">
-      <span class="text-xl">➕</span><span>Ajouter</span>
-    </button>
-    <button id="btn-mview-list" onclick="switchMobileView('list')" class="flex flex-col items-center justify-center gap-0.5 text-indigo-950 font-black text-[11px] w-1/3 h-full border-r border-slate-100">
-      <span class="text-xl">📋</span><span>Tournée</span>
-    </button>
-    <button id="btn-mview-map" onclick="switchMobileView('map')" class="flex flex-col items-center justify-center gap-0.5 text-slate-400 font-medium text-[11px] w-1/3 h-full">
-      <span class="text-xl">🗺️</span><span>Carte</span>
-    </button>
-  </div>
+  <section>
+    <h2 class="title" style="padding:0 3px">Liste des colis à livrer</h2>
+    <div id="routeList"></div>
+  </section>
 
-  <div class="print-only p-8">
-    <div class="border-b-2 border-slate-900 pb-3 mb-5">
-      <h1 class="text-2xl font-black text-slate-900 uppercase">Feuille de Route Optimisée</h1>
-      <p class="text-xs text-slate-500 mt-0.5">Départ 2 Rue Fernand et Marcelle Rivière, Fleury-les-Aubrais • Générée le <span id="print-date"></span></p>
-      <div class="grid grid-cols-4 gap-4 mt-3 text-xs font-semibold">
-        <div class="bg-slate-100 p-2 rounded">Adresses à livrer : <span id="print-count" class="font-bold"></span></div>
-        <div class="bg-slate-100 p-2 rounded">Points d'arrêt véhicule : <span id="print-hubs" class="font-bold"></span></div>
-        <div class="bg-slate-100 p-2 rounded">Distance véhicule : <span id="print-dist" class="font-bold"></span></div>
-        <div class="bg-slate-100 p-2 rounded">Consignes : Stationner au hub, livrer à pied</div>
+  <section class="card no-print">
+    <details>
+      <summary>Colis déjà livrés et options</summary>
+      <div id="deliveredList" class="delivered-list"></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">
+        <button id="resetDelivered" class="btn btn-secondary" style="font-size:12px;padding:8px 10px">Tout remettre à livrer</button>
+        <button id="restoreDeleted" class="btn btn-secondary" style="font-size:12px;padding:8px 10px">Restaurer les suppressions</button>
+        <button id="factoryReset" class="btn btn-danger" style="font-size:12px;padding:8px 10px">Nouvelle tournée vide</button>
       </div>
-    </div>
-    <div id="print-zones-container" class="space-y-6"></div>
-    <div class="mt-8 border-t border-dashed border-slate-300 pt-4 text-center text-[9px] text-slate-400">
-      Document opérationnel de tournée — Respecter les créneaux ENGAGÉ et le code de la route lors des arrêts.
-    </div>
-  </div>
+    </details>
+  </section>
+</main>
+</div>
 
-  <script>
-    "use strict";
+<div class="bottom no-print"><div class="bottom-inner">
+  <button id="refreshBtn" class="btn btn-primary">🔄 Rafraîchir l’itinéraire</button>
+  <button id="scrollMapsBtn" class="btn btn-green">🧭 Maps</button>
+  <button id="popoutMapBtn" class="btn btn-secondary">🖥️ 2e écran</button>
+</div></div>
 
-    const DEPOT = {"name": "Départ / Dépôt", "street": "Rue Fernand et Marcelle Rivière", "number": "2", "lat": 47.938095, "lon": 1.896244, "notes": "2 Rue Fernand et Marcelle Rivière, 45400 Fleury-les-Aubrais", "depot": true};
-    // Tournée vide au démarrage : les adresses arrivent via OCR (📸) ou saisie manuelle.
-    const INITIAL_DELIVERIES = [];
+<script>
+'use strict';
+const STORAGE_KEY='tournee_orleans_simple_v3';
+const SETTINGS_VERSION=1;
+const DEPOT={name:'2 Rue Fernand et Marcelle Rivière, 45400 Fleury-les-Aubrais',lat:47.93809463,lon:1.89624423};
+const INITIAL_DELIVERIES=[];
+let state={deliveries:[],radius:20,settingsVersion:SETTINGS_VERSION,startPoint:null};
+let plan={stops:[],segments:[]};
+let dirty=false;
+let mapVisible=false,map=null,markerLayer=null,routeLine=null,roadRouteLine=null;
+let startPoint={name:DEPOT.name,lat:DEPOT.lat,lon:DEPOT.lon,isCurrent:false};
+let lastRoadRouteKey=null,calculating=false;
+const isFullMapMode=new URLSearchParams(location.search).get('fullmap')==='1';
 
-
-    let activeFilter = "all";
-    let currentStreets = [];
-    let currentClusters = [];
-    let map = null, markerGroup = null, polylineRoute = null, roadRoute = null, radialLinesGroup = null, depotMarker = null;
-    let roadRouteToken = 0; // pour annuler un calcul de route obsolète
-    let lastRoadDistanceKm = null;
-    let currentMobileView = 'list';
-    let vehicleDistanceKm = 0;
-
-    /* =========================================================
-       Sauvegarde locale (localStorage) — persiste dans le cache
-       du navigateur (Android/PC) même après fermeture de l'onglet.
-       ========================================================= */
-    const STORAGE_KEY = "tournee_colis_orleans_v1";
-    let storageReady = false; // évite de sauvegarder pendant le tout premier chargement
-
-    function saveState() {
-      if (!storageReady) return;
-      try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify({
-          savedAt: new Date().toISOString(),
-          deliveries: currentStreets
-        }));
-      } catch (e) { /* quota plein ou mode privé : on ignore silencieusement */ }
+const $=id=>document.getElementById(id);
+function esc(value){return String(value??'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));}
+function load(){
+  try{
+    const saved=JSON.parse(localStorage.getItem(STORAGE_KEY));
+    if(saved&&Array.isArray(saved.deliveries)){
+      if(saved.settingsVersion!==SETTINGS_VERSION){saved.radius=20;saved.settingsVersion=SETTINGS_VERSION;}
+      state=saved;
+      startPoint=saved.startPoint&&saved.startPoint.lat?saved.startPoint:{name:DEPOT.name,lat:DEPOT.lat,lon:DEPOT.lon,isCurrent:false};
+      return;
     }
+  }catch(e){}
+  state={deliveries:INITIAL_DELIVERIES.map(x=>({...x})),radius:20,settingsVersion:SETTINGS_VERSION,startPoint:null};
+}
+function save(){state.startPoint=startPoint;try{localStorage.setItem(STORAGE_KEY,JSON.stringify(state));}catch(e){/* Le fichier reste utilisable même si le stockage local est bloqué. */}}
+function distance(a,b){const R=6371000,dLat=(b.lat-a.lat)*Math.PI/180,dLon=(b.lon-a.lon)*Math.PI/180,l1=a.lat*Math.PI/180,l2=b.lat*Math.PI/180;const x=Math.sin(dLat/2)**2+Math.sin(dLon/2)**2*Math.cos(l1)*Math.cos(l2);return 2*R*Math.atan2(Math.sqrt(x),Math.sqrt(1-x));}
+function activeDeliveries(){return state.deliveries.filter(x=>!x.delivered&&!x.deleted);}
+function parcelCount(items){return items.reduce((n,x)=>{const m=(x.notes||'').match(/(\d+)\s*colis/i);return n+(m?Math.max(1,Number(m[1])):1);},0);}
 
-    function loadState() {
-      try {
-        const raw = localStorage.getItem(STORAGE_KEY);
-        if (!raw) return null;
-        const data = JSON.parse(raw);
-        if (data && Array.isArray(data.deliveries)) return data;
-      } catch (e) { /* données corrompues : on repart à vide */ }
-      return null;
+async function fetchWithTimeout(url,ms){
+  const ctrl=new AbortController();const t=setTimeout(()=>ctrl.abort(),ms);
+  try{return await fetch(url,{signal:ctrl.signal});}finally{clearTimeout(t);}
+}
+async function osrmTable(points){
+  const coords=points.map(p=>`${p.lon},${p.lat}`).join(';');
+  const res=await fetchWithTimeout(`https://router.project-osrm.org/table/v1/driving/${coords}?annotations=duration`,8000);
+  if(!res.ok)throw new Error('OSRM table HTTP '+res.status);
+  const data=await res.json();
+  if(data.code!=='Ok'||!Array.isArray(data.durations))throw new Error('OSRM table code '+data.code);
+  return data.durations;
+}
+async function osrmRoute(points){
+  const coords=points.map(p=>`${p[1]},${p[0]}`).join(';');
+  const res=await fetchWithTimeout(`https://router.project-osrm.org/route/v1/driving/${coords}?overview=full&geometries=geojson`,9000);
+  if(!res.ok)throw new Error('OSRM route HTTP '+res.status);
+  const data=await res.json();
+  if(data.code!=='Ok'||!data.routes||!data.routes[0])throw new Error('OSRM route code '+data.code);
+  return data.routes[0].geometry.coordinates.map(c=>[c[1],c[0]]);
+}
+function setCalculating(on){
+  calculating=on;
+  const btn=$('refreshBtn');
+  if(btn){btn.disabled=on;btn.textContent=on?'🔄 Calcul de l’itinéraire (routier)…':'🔄 Rafraîchir l’itinéraire';}
+}
+async function computePlan(fitMap){
+  setCalculating(true);
+  const list=[...activeDeliveries()];
+  const n=list.length;
+  const stops=[];
+  let matrix=null;
+  if(n>0&&n<=70){
+    try{matrix=await osrmTable([startPoint,...list]);}catch(e){matrix=null;}
+  }
+  const usedIdx=new Set();
+  let currentMatrixIdx=0;let currentPoint=startPoint;let index=1;
+  while(usedIdx.size<n){
+    let nearest=-1,best=Infinity;
+    for(let i=0;i<n;i++){
+      if(usedIdx.has(i))continue;
+      const d=matrix?matrix[currentMatrixIdx][i+1]:distance(currentPoint,list[i]);
+      if(d!=null&&d<best){best=d;nearest=i;}
     }
-
-    function clearSavedState() {
-      try { localStorage.removeItem(STORAGE_KEY); } catch (e) {}
-    }
-
-    window.addEventListener("DOMContentLoaded", () => {
-      initMap();
-      // Reprise de la tournée sauvegardée si elle existe, sinon démarrage à vide.
-      const saved = loadState();
-      const statusEl = document.getElementById("route-status");
-      if (saved && saved.deliveries.length > 0) {
-        currentStreets = saved.deliveries;
-        recomputeClustersAndRender();
-        optimizeTour();
-        const when = saved.savedAt ? new Date(saved.savedAt).toLocaleString("fr-FR", {day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}) : "";
-        if (statusEl) statusEl.textContent = `💾 Tournée restaurée (${saved.deliveries.length} adresses${when ? ", " + when : ""}).`;
-        currentMobileView = 'list';  // on a des adresses -> on montre la tournée
-      } else {
-        currentStreets = [];
-        recomputeClustersAndRender();
-        if (statusEl) statusEl.textContent = "👋 Tournée vide — importe tes screenshots (📸) ou ajoute une adresse pour commencer.";
-        currentMobileView = 'tools'; // tournée vide -> on montre l'onglet Ajouter
+    if(nearest===-1)break;
+    usedIdx.add(nearest);
+    const seed=list[nearest];
+    const items=[seed];
+    if(state.radius>0){
+      for(let i=0;i<n;i++){
+        if(usedIdx.has(i))continue;
+        if(distance(seed,list[i])<=state.radius){usedIdx.add(i);items.push(list[i]);}
       }
-      storageReady = true; // à partir d'ici, tout changement est sauvegardé
-      initResponsiveView();
+    }
+    items.sort((a,b)=>distance(seed,a)-distance(seed,b));
+    stops.push({index:index++,lat:seed.lat,lon:seed.lon,anchor:seed,items});
+    currentPoint=seed;currentMatrixIdx=nearest+1;
+  }
+  const segments=[];let start=0;let num=1;
+  while(start<stops.length){
+    const chunk=stops.slice(start,start+9);
+    const destination=chunk[chunk.length-1];
+    const waypoints=chunk.slice(0,-1).map(s=>`${s.lat},${s.lon}`).join('|');
+    // Aucun origin n'est indiqué : Google Maps utilise la position actuelle (calcule alors l'itinéraire routier réel).
+    let url=`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(`${destination.lat},${destination.lon}`)}&travelmode=driving&dir_action=navigate`;
+    if(waypoints)url+=`&waypoints=${encodeURIComponent(waypoints)}`;
+    segments.push({num,startStop:start+1,endStop:start+chunk.length,count:chunk.length,url,stops:chunk,returnsToDepot:false,returnOnly:false});
+    start+=9;num++;
+  }
+  if(stops.length){
+    const returnUrl=`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(DEPOT.name)}&travelmode=driving&dir_action=navigate`;
+    segments.push({num,startStop:null,endStop:null,count:0,url:returnUrl,stops:[],returnsToDepot:true,returnOnly:true});
+  }
+  plan={stops,segments,usedRealRoads:!!matrix};dirty=false;save();setCalculating(false);render(fitMap);
+}
+
+function setDirty(){dirty=true;save();render(false);}
+function toggleDelivered(id,checked){const d=state.deliveries.find(x=>x.id===id);if(d){d.delivered=checked;setDirty();}}
+function deleteDelivery(id){const d=state.deliveries.find(x=>x.id===id);if(d&&confirm(`Supprimer ${d.name} de la tournée ?`)){d.deleted=true;setDirty();}}
+function markStopDone(stopIndex){const stop=plan.stops.find(s=>s.index===stopIndex);if(!stop)return;stop.items.forEach(it=>{const d=state.deliveries.find(x=>x.id===it.id);if(d)d.delivered=true;});setDirty();}
+function restoreDelivery(id){const d=state.deliveries.find(x=>x.id===id);if(d){d.delivered=false;setDirty();}}
+
+function ordinalLink(n){return n===1?'1er':`${n}e`;}
+function itineraryText(){
+  if(!plan.segments.length)return 'Aucun itinéraire : ajoutez des adresses puis rafraîchissez la tournée.';
+  const lines=[];
+  for(const segment of plan.segments){
+    if(segment.returnOnly){
+      lines.push(`Lien retour au dépôt : ${segment.url}`);
+      lines.push(`Retour final : ${DEPOT.name}`);
+      continue;
+    }
+    lines.push(`${ordinalLink(segment.num)} lien Maps : ${segment.url}`);
+    for(const stop of segment.stops){
+      const addresses=stop.items.map(item=>item.name).join(' ; ');
+      lines.push(`Arrêt ${stop.index} : ${addresses}`);
+    }
+    lines.push('');
+  }
+  return lines.join('\n').trim();
+}
+async function copyText(text){
+  try{
+    if(navigator.clipboard&&window.isSecureContext){await navigator.clipboard.writeText(text);return true;}
+  }catch(e){}
+  const area=document.createElement('textarea');area.value=text;area.setAttribute('readonly','');area.style.position='fixed';area.style.opacity='0';document.body.appendChild(area);area.select();
+  let ok=false;try{ok=document.execCommand('copy');}catch(e){}area.remove();return ok;
+}
+async function copyFullItinerary(){
+  const ok=await copyText(itineraryText());
+  $('copyStatus').textContent=ok?'✓ Itinéraire complet copié.':'Copie automatique impossible. Autorisez l’accès au presse-papiers ou ouvrez le fichier dans Chrome.';
+  setTimeout(()=>{$('copyStatus').textContent='';},3000);
+}
+
+// ---------- Carte ----------
+function ensureMap(){
+  if(map)return;
+  map=L.map('map',{zoomControl:true,tap:false});
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
+    maxZoom:19,attribution:'© OpenStreetMap'
+  }).addTo(map);
+  markerLayer=L.layerGroup().addTo(map);
+  map.setView([DEPOT.lat,DEPOT.lon],14);
+}
+function pinIcon(html,extraClass){
+  return L.divIcon({className:'',html:`<div class="map-pin ${extraClass||''}">${html}</div>`,iconSize:[26,26],iconAnchor:[13,13]});
+}
+function renderMap(fit){
+  if(!map)return;
+  markerLayer.clearLayers();
+  if(routeLine){routeLine.remove();routeLine=null;}
+  if(roadRouteLine){roadRouteLine.remove();roadRouteLine=null;}
+  $('mapEmptyNotice').classList.toggle('hidden',!!plan.stops.length);
+  const depotMarker=L.marker([DEPOT.lat,DEPOT.lon],{icon:pinIcon('🏠','depot'),zIndexOffset:400});
+  depotMarker.bindPopup(`<b>Dépôt</b><br>${esc(DEPOT.name)}`);
+  markerLayer.addLayer(depotMarker);
+  if(startPoint.isCurrent){
+    const posMarker=L.marker([startPoint.lat,startPoint.lon],{icon:pinIcon('📍','current'),zIndexOffset:600});
+    posMarker.bindPopup('<b>Position actuelle</b><br>Point de départ de la tournée');
+    markerLayer.addLayer(posMarker);
+  }
+  const linePoints=[[startPoint.lat,startPoint.lon]];
+  for(const stop of plan.stops){
+    const visible=stop.items.filter(it=>{const d=state.deliveries.find(x=>x.id===it.id);return d&&!d.deleted;});
+    if(!visible.length)continue;
+    const liveCount=visible.filter(it=>{const d=state.deliveries.find(x=>x.id===it.id);return d&&!d.delivered;}).length;
+    const done=liveCount===0;
+    const m=L.marker([stop.lat,stop.lon],{icon:pinIcon(String(stop.index),done?'done-pin':'')});
+    const addresses=visible.map(it=>esc(it.name)).join('<br>');
+    m.bindPopup(`<b>Arrêt ${stop.index}</b>${done?' ✓':''}<br>${addresses}`);
+    markerLayer.addLayer(m);
+    linePoints.push([stop.lat,stop.lon]);
+  }
+  if(linePoints.length>1){
+    routeLine=L.polyline(linePoints,{color:'#24558f',weight:2,opacity:.5,dashArray:'5,8'}).addTo(map);
+  }
+  if(fit){
+    const bounds=L.latLngBounds(linePoints.length?linePoints:[[DEPOT.lat,DEPOT.lon]]);
+    map.fitBounds(bounds,{padding:[28,28],maxZoom:16});
+  }
+  if(linePoints.length>1){
+    const key=linePoints.map(p=>p[0].toFixed(5)+','+p[1].toFixed(5)).join(';');
+    if(key!==lastRoadRouteKey){
+      lastRoadRouteKey=key;
+      osrmRoute(linePoints).then(coords=>{
+        if(lastRoadRouteKey!==key||!map)return; // une tournée plus récente a déjà été demandée
+        if(roadRouteLine)roadRouteLine.remove();
+        roadRouteLine=L.polyline(coords,{color:'#173b69',weight:4,opacity:.85}).addTo(map);
+        roadRouteLine.bringToFront();
+      }).catch(()=>{ /* pas de route routière dispo (hors-ligne) : la ligne droite en pointillés reste affichée */ });
+    }else if(roadRouteLine){
+      roadRouteLine.addTo(map);roadRouteLine.bringToFront();
+    }
+  }
+}
+function updateStartLabel(){
+  const info=$('startLabel').parentElement;
+  if(startPoint.isCurrent){
+    const t=new Date(startPoint.updatedAt||Date.now());
+    const hh=String(t.getHours()).padStart(2,'0'),mm=String(t.getMinutes()).padStart(2,'0');
+    $('startLabel').textContent=`Départ : votre position actuelle (mise à jour ${hh}:${mm})`;
+    info.classList.remove('is-depot');
+    $('resetDepotBtn').classList.remove('hidden');
+  }else{
+    $('startLabel').textContent='Départ : dépôt (Fleury-les-Aubrais)';
+    info.classList.add('is-depot');
+    $('resetDepotBtn').classList.add('hidden');
+  }
+}
+function useCurrentLocation(){
+  const btn=$('useLocationBtn'),err=$('locError');
+  err.classList.add('hidden');
+  if(!('geolocation' in navigator)){err.textContent='La géolocalisation n’est pas disponible sur cet appareil/navigateur.';err.classList.remove('hidden');return;}
+  btn.disabled=true;btn.textContent='Localisation…';
+  navigator.geolocation.getCurrentPosition(
+    pos=>{
+      startPoint={name:'Position actuelle',lat:pos.coords.latitude,lon:pos.coords.longitude,isCurrent:true,updatedAt:Date.now()};
+      btn.disabled=false;btn.textContent='📍 Ma position actuelle';
+      updateStartLabel();
+      computePlan(true);
+      if(!mapVisible)toggleMap();
+    },
+    error=>{
+      btn.disabled=false;btn.textContent='📍 Ma position actuelle';
+      const msgs={1:'Localisation refusée. Autorisez l’accès à la position dans les réglages du navigateur.',2:'Position indisponible pour le moment. Réessayez à l’extérieur ou avec le GPS activé.',3:'La localisation a pris trop de temps. Réessayez.'};
+      err.textContent=msgs[error.code]||'Impossible de récupérer votre position.';
+      err.classList.remove('hidden');
+    },
+    {enableHighAccuracy:true,timeout:12000,maximumAge:0}
+  );
+}
+function resetToDepot(){
+  startPoint={name:DEPOT.name,lat:DEPOT.lat,lon:DEPOT.lon,isCurrent:false};
+  updateStartLabel();
+  computePlan(true);
+}
+function openPopoutMap(){
+  const base=location.href.split('?')[0];
+  window.open(base+'?fullmap=1','_blank','noopener');
+}
+function initFullMapMode(){
+  document.body.classList.add('fullmap-mode');
+  document.title='Carte — Tournée Orléans';
+  mapVisible=true;
+  ensureMap();
+  renderMap(true);
+  setTimeout(()=>map&&map.invalidateSize(),80);
+  const closeBtn=document.createElement('button');
+  closeBtn.textContent='✖ Fermer';
+  closeBtn.className='btn btn-secondary';
+  closeBtn.style.cssText='position:fixed;top:10px;right:10px;z-index:1000;box-shadow:0 2px 8px #0003;padding:8px 12px;font-size:12px';
+  closeBtn.onclick=()=>{window.close();setTimeout(()=>history.back(),150);};
+  document.body.appendChild(closeBtn);
+}
+window.addEventListener('storage',e=>{
+  if(e.key!==STORAGE_KEY)return;
+  load();
+  updateStartLabel();
+  computePlan(isFullMapMode);
+});
+function toggleMap(){
+  mapVisible=!mapVisible;
+  $('mapWrap').classList.toggle('hidden',!mapVisible);
+  $('toggleMapBtn').textContent=mapVisible?'🗺️ Masquer la carte':'🗺️ Afficher la carte';
+  if(mapVisible){
+    ensureMap();
+    renderMap(true);
+    setTimeout(()=>map.invalidateSize(),60);
+  }
+}
+
+function render(fitMap){
+  $('radius').value=state.radius;$('radiusValue').textContent=state.radius+' m';
+  const remaining=activeDeliveries();
+  $('remainingCount').textContent=parcelCount(remaining);
+  $('stopCount').textContent=plan.stops.length;
+  $('segmentCount').textContent=plan.segments.length;
+  $('dirtyBanner').classList.toggle('show',dirty);
+  if(plan.stops.length){
+    $('routingBadge').textContent=plan.usedRealRoads?'🛣️ ordre calculé avec les routes réelles':'📏 estimation à vol d’oiseau (routage indisponible)';
+  }else{
+    $('routingBadge').textContent='';
+  }
+
+  $('segments').innerHTML=plan.segments.length?plan.segments.map(s=>s.returnOnly
+    ? `<div class="segment"><div class="segment-head"><div><b>Retour au dépôt</b><br><span>Depuis votre position actuelle vers Fleury-les-Aubrais</span></div><span>FIN</span></div><a class="btn btn-green" target="_blank" rel="noopener" href="${esc(s.url)}">🏠 Ouvrir le retour dans Google Maps</a></div>`
+    : `<div class="segment"><div class="segment-head"><div><b>${ordinalLink(s.num)} lien Maps</b><br><span>Arrêts ${s.startStop} à ${s.endStop} — départ : position actuelle</span></div><span>${s.count} arrêt${s.count>1?'s':''}</span></div><a class="btn btn-green" target="_blank" rel="noopener" href="${esc(s.url)}">🧭 Ouvrir ce lien dans Google Maps</a></div>`).join(''):`<div class="empty">Ajoutez des adresses pour créer la tournée.</div>`;
+
+  const cards=[];
+  for(const stop of plan.stops){
+    const visible=stop.items.filter(it=>{const d=state.deliveries.find(x=>x.id===it.id);return d&&!d.deleted;});
+    if(!visible.length)continue;
+    const rows=visible.map(it=>{const d=state.deliveries.find(x=>x.id===it.id);const engage=/ENGAGE/i.test(d.notes||'');return `<div class="delivery ${d.delivered?'checked':''}"><input type="checkbox" ${d.delivered?'checked':''} aria-label="Livré" onchange="toggleDelivered('${d.id}',this.checked)"><div><div class="address">${esc(d.name)}</div>${d.notes?`<div class="notes ${engage?'engage':''}">${esc(d.notes)}</div>`:''}</div><button class="delete" title="Supprimer" onclick="deleteDelivery('${d.id}')">×</button></div>`;}).join('');
+    const liveCount=visible.filter(it=>{const d=state.deliveries.find(x=>x.id===it.id);return d&&!d.delivered;}).length;
+    cards.push(`<article class="stop"><div class="stop-head ${liveCount===0?'done':''}"><div><div class="stop-title">Arrêt ${stop.index} — ${esc(stop.anchor.name)}</div><div class="stop-sub">Stationner ici, puis livrer les adresses proches à pied</div></div><div class="stop-count">${visible.length} adresse${visible.length>1?'s':''}</div></div><div>${rows}</div><div class="stop-actions"><button onclick="markStopDone(${stop.index})">✓ Tout marquer livré</button></div></article>`);
+  }
+  $('routeList').innerHTML=cards.length?cards.join(''):(state.deliveries.length?`<div class="card empty">🎉 Tous les colis de la tournée sont livrés.</div>`:`<div class="card empty">Aucune adresse dans la tournée. Ajoutez vos colis du jour ci-dessus.</div>`);
+
+  const delivered=state.deliveries.filter(x=>x.delivered&&!x.deleted);
+  $('deliveredList').innerHTML=delivered.length?delivered.map(d=>`<div class="delivered-item"><span>✓ ${esc(d.name)}</span><button class="restore" onclick="restoreDelivery('${d.id}')">Remettre</button></div>`).join(''):`<div style="padding:9px 0">Aucun colis marqué livré.</div>`;
+
+  if(mapVisible)renderMap(!!fitMap);
+}
+
+async function addAddress(){
+  const input=$('newAddress'),error=$('addError'),q=input.value.trim();if(!q)return;
+  error.classList.add('hidden');$('addBtn').disabled=true;$('addBtn').textContent='Recherche…';
+  try{
+    // Nouvelle API officielle IGN / Géoplateforme. L'ancienne API BAN a été arrêtée fin janvier 2026.
+    const params=new URLSearchParams({
+      q,
+      index:'address',
+      limit:'5',
+      lat:String(DEPOT.lat),
+      lon:String(DEPOT.lon),
+      depcode:'45'
     });
-    window.addEventListener("resize", () => initResponsiveView());
+    const res=await fetch(`https://data.geopf.fr/geocodage/search?${params.toString()}`,{headers:{Accept:'application/json'}});
+    if(!res.ok)throw new Error(`Service d’adresse indisponible (erreur ${res.status}). Réessayez avec Internet activé.`);
+    const data=await res.json();
+    const candidates=Array.isArray(data.features)?data.features:[];
+    const f=candidates.find(x=>x?.geometry?.type==='Point'&&Array.isArray(x.geometry.coordinates))||candidates[0];
+    if(!f)throw new Error('Adresse introuvable. Indiquez le numéro, la rue et la commune.');
+    const [lon,lat]=f.geometry.coordinates,p=f.properties||{};
+    if(!Number.isFinite(Number(lat))||!Number.isFinite(Number(lon)))throw new Error('Coordonnées invalides renvoyées par le service d’adresse.');
+    const id=(globalThis.crypto&&typeof crypto.randomUUID==='function')?crypto.randomUUID():'d'+Date.now()+'_'+Math.random().toString(36).slice(2,8);
+    state.deliveries.push({id,name:p.label||p.name||q,street:p.street||p.name||q,number:p.housenumber||'',lat:Number(lat),lon:Number(lon),notes:'',delivered:false,deleted:false});
+    input.value='';computePlan(true);
+  }catch(e){error.textContent=(e instanceof TypeError||/fetch|network|réseau/i.test(e.message||''))?'Impossible de rechercher l’adresse. Vérifiez la connexion Internet puis réessayez.':(e.message||'Impossible d’ajouter cette adresse.');error.classList.remove('hidden');}
+  finally{$('addBtn').disabled=false;$('addBtn').textContent='Ajouter';}
+}
 
-    function initResponsiveView() {
-      // < 1024px = mode onglets (mobile + iPad portrait) ; ≥ 1024px = 2 colonnes
-      if (window.innerWidth < 1024) {
-        switchMobileView(currentMobileView);
-      } else {
-        // Grand écran : tout est visible, le CSS reprend la main
-        document.body.classList.remove('mv-tools', 'mv-list', 'mv-map');
-        document.getElementById("sidebar-section").classList.remove("hidden");
-        document.getElementById("map-section").classList.remove("hidden");
-        if (map) map.invalidateSize();
-      }
-    }
+$('radius').addEventListener('input',e=>{$('radiusValue').textContent=e.target.value+' m';});
+$('radius').addEventListener('change',e=>{state.radius=Number(e.target.value);dirty=true;save();render(false);});
+$('refreshBtn').addEventListener('click',()=>computePlan(true));
+$('scrollMapsBtn').addEventListener('click',()=>document.getElementById('maps-links').scrollIntoView({behavior:'smooth'}));
+$('copyRouteBtn').addEventListener('click',copyFullItinerary);
+$('printBtn').addEventListener('click',()=>window.print());
+$('addBtn').addEventListener('click',addAddress);
+$('newAddress').addEventListener('keydown',e=>{if(e.key==='Enter')addAddress();});
+$('toggleMapBtn').addEventListener('click',toggleMap);
+$('popoutMapBtn').addEventListener('click',openPopoutMap);
+$('useLocationBtn').addEventListener('click',useCurrentLocation);
+$('resetDepotBtn').addEventListener('click',resetToDepot);
+$('resetDelivered').addEventListener('click',()=>{state.deliveries.forEach(x=>x.delivered=false);computePlan(true);});
+$('restoreDeleted').addEventListener('click',()=>{state.deliveries.forEach(x=>x.deleted=false);computePlan(true);});
+$('factoryReset').addEventListener('click',()=>{if(confirm('Créer une nouvelle tournée vide et effacer toutes les adresses enregistrées ?')){localStorage.removeItem(STORAGE_KEY);state={deliveries:[],radius:20,settingsVersion:SETTINGS_VERSION};computePlan(true);}});
 
-    // 3 onglets mobiles : 'tools' (ajouter/outils), 'list' (tournée), 'map' (carte).
-    // Le body porte une classe mv-* ; le CSS montre/masque les bons panneaux.
-    function switchMobileView(targetView) {
-      currentMobileView = targetView;
-      document.body.classList.remove('mv-tools', 'mv-list', 'mv-map');
-      document.body.classList.add('mv-' + targetView);
-
-      // Style des 3 boutons de la barre du bas
-      const tabs = {
-        tools: document.getElementById("btn-mview-tools"),
-        list:  document.getElementById("btn-mview-list"),
-        map:   document.getElementById("btn-mview-map"),
-      };
-      const active = "flex flex-col items-center justify-center gap-0.5 text-indigo-950 font-black text-[11px] w-1/3 h-full";
-      const idle   = "flex flex-col items-center justify-center gap-0.5 text-slate-400 font-medium text-[11px] w-1/3 h-full";
-      Object.entries(tabs).forEach(([key, btn]) => {
-        if (!btn) return;
-        const border = key !== 'map' ? ' border-r border-slate-100' : '';
-        btn.className = (key === targetView ? active : idle) + border;
-      });
-
-      if (targetView === 'map') {
-        setTimeout(() => { if (map) map.invalidateSize(); }, 120);
-      }
-      // Remonter en haut du panneau affiché (confort de lecture)
-      window.scrollTo(0, 0);
-    }
-
-    function initMap() {
-      map = L.map('map', { zoomControl: true, tap: false }).setView([DEPOT.lat, DEPOT.lon], 15);
-      L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
-        maxZoom: 19
-      }).addTo(map);
-      markerGroup = L.featureGroup().addTo(map);
-      radialLinesGroup = L.featureGroup().addTo(map);
-      // Ligne pointillée "à vol d'oiseau" entre arrêts (fallback / repère d'ordre)
-      polylineRoute = L.polyline([], { color: '#1e3a8a', weight: 2, opacity: 0.35, dashArray: '4, 6' }).addTo(map);
-      // Tracé routier réel (suit les rues) calculé via OSRM depuis le navigateur
-      roadRoute = L.polyline([], { color: '#2563eb', weight: 5, opacity: 0.85 }).addTo(map);
-
-      const depotIcon = L.divIcon({
-        className: 'custom-depot',
-        html: '<div class="parking-badge w-9 h-9 rounded-lg shadow-lg flex flex-col items-center justify-center" style="background-color:#059669;border-color:#065f46;"><span class="text-sm leading-none">🏪</span></div>',
-        iconSize: [36, 36], iconAnchor: [18, 18]
-      });
-      depotMarker = L.marker([DEPOT.lat, DEPOT.lon], { icon: depotIcon });
-      depotMarker.bindPopup('<div class="p-1"><h4 class="font-extrabold text-xs text-emerald-700">🏪 DÉPART / DÉPÔT</h4><p class="text-[10px] text-slate-500">' + DEPOT.name + '</p><p class="text-[10px] text-slate-600">' + DEPOT.notes + '</p></div>');
-      markerGroup.addLayer(depotMarker);
-    }
-
-    function setFilter(targetFilter) {
-      activeFilter = targetFilter;
-      ['all', 'todo', 'done'].forEach(f => {
-        const btn = document.getElementById(`btn-filter-${f}`);
-        btn.className = f === targetFilter
-          ? "py-1 text-xs font-bold rounded-md transition-all bg-white text-indigo-950 shadow"
-          : "py-1 text-xs font-bold rounded-md transition-all text-slate-600 hover:text-indigo-950";
-      });
-      renderAll();
-    }
-
-    function haversine(a, b) {
-      const R = 6371000;
-      const dLat = (b.lat - a.lat) * Math.PI / 180;
-      const dLon = (b.lon - a.lon) * Math.PI / 180;
-      const lat1 = a.lat * Math.PI / 180, lat2 = b.lat * Math.PI / 180;
-      const x = Math.sin(dLat/2)**2 + Math.sin(dLon/2)**2 * Math.cos(lat1) * Math.cos(lat2);
-      return R * 2 * Math.atan2(Math.sqrt(x), Math.sqrt(1 - x));
-    }
-
-    function clusterDeliveries() {
-      const walkLimit = parseFloat(document.getElementById("walk-radius").value);
-      const unvisited = [...currentStreets];
-      const hubs = [];
-      let hubCounter = 1;
-      while (unvisited.length > 0) {
-        const seed = unvisited.shift();
-        const clusterItems = [seed];
-        for (let i = 0; i < unvisited.length; i++) {
-          if (haversine(seed, unvisited[i]) <= walkLimit) {
-            clusterItems.push(unvisited[i]);
-            unvisited.splice(i, 1); i--;
-          }
-        }
-        let sumLat = 0, sumLon = 0;
-        clusterItems.forEach(it => { sumLat += it.lat; sumLon += it.lon; });
-        hubs.push({
-          id: hubCounter++,
-          name: `Zone ${seed.street || seed.name}`,
-          lat: sumLat / clusterItems.length,
-          lon: sumLon / clusterItems.length,
-          items: clusterItems
-        });
-      }
-      currentClusters = hubs;
-    }
-
-    function updateWalkRadius(val) {
-      document.getElementById("radius-val").textContent = `${val} m`;
-      recomputeClustersAndRender();
-      optimizeTour();
-    }
-
-    function recomputeClustersAndRender() { clusterDeliveries(); renderAll(); }
-
-    // TSP voisin le plus proche EN PARTANT DU DÉPÔT
-    function optimizeTour() {
-      if (currentClusters.length < 1) return;
-      const unvisited = [...currentClusters];
-      const optimizedHubs = [];
-      let current = { lat: DEPOT.lat, lon: DEPOT.lon }; // on démarre au dépôt
-      while (unvisited.length > 0) {
-        let nearestIdx = 0, minDist = Infinity;
-        for (let i = 0; i < unvisited.length; i++) {
-          const dist = haversine(current, unvisited[i]);
-          if (dist < minDist) { minDist = dist; nearestIdx = i; }
-        }
-        current = unvisited.splice(nearestIdx, 1)[0];
-        optimizedHubs.push(current);
-      }
-      // tri des livraisons à pied dans chaque hub, du plus proche du centre au plus loin
-      optimizedHubs.forEach(hub => {
-        const center = { lat: hub.lat, lon: hub.lon };
-        hub.items.sort((a, b) => haversine(center, a) - haversine(center, b));
-      });
-      currentClusters = optimizedHubs;
-      const orderedStreets = [];
-      currentClusters.forEach(hub => hub.items.forEach(it => orderedStreets.push(it)));
-      currentStreets = orderedStreets;
-      renderAll();
-    }
-
-    function renderAll() { renderList(); renderMapElements(); updateStats(); updatePrintView(); saveState(); }
-
-    function hasEngage(item) { return /ENGAGE/i.test(item.notes || ""); }
-
-    function renderList() {
-      const container = document.getElementById("street-list-container");
-      container.innerHTML = "";
-      if (currentClusters.length === 0) {
-        container.innerHTML = `<p class="text-sm text-slate-400 text-center py-8">Aucun point de livraison.</p>`;
-        return;
-      }
-      let visibleHubCount = 0;
-      currentClusters.forEach((hub, hIdx) => {
-        const filteredItems = hub.items.filter(item => {
-          if (activeFilter === "todo") return !item.delivered;
-          if (activeFilter === "done") return item.delivered;
-          return true;
-        });
-        if (filteredItems.length === 0) return;
-        visibleHubCount++;
-        const hubSection = document.createElement("div");
-        hubSection.className = "mb-5 border border-slate-200 rounded-xl bg-slate-50 overflow-hidden shadow-sm";
-        const allDone = hub.items.every(item => item.delivered);
-        const header = document.createElement("div");
-        header.className = `p-3 flex justify-between items-center border-b border-slate-200 transition-all ${allDone ? 'bg-slate-200/80 text-slate-500' : 'bg-indigo-900 text-white'}`;
-        header.innerHTML = `
-          <div class="flex items-center gap-2">
-            <span class="text-base">🚗</span>
-            <div class="text-left">
-              <h4 class="text-xs font-black uppercase tracking-wide leading-tight">Arrêt #${hIdx + 1}</h4>
-              <p class="text-[10px] opacity-85 font-medium leading-none">${hub.name}</p>
-            </div>
-          </div>
-          <span class="text-[9px] font-extrabold px-1.5 py-0.5 rounded-full ${allDone ? 'bg-slate-300 text-slate-700' : 'bg-indigo-700 text-white'}">
-            ${filteredItems.length} pt${filteredItems.length > 1 ? 's' : ''}
-          </span>`;
-        hubSection.appendChild(header);
-        const itemsList = document.createElement("div");
-        itemsList.className = "p-2 bg-white space-y-1.5";
-        filteredItems.forEach((item) => {
-          const globalIdx = currentStreets.indexOf(item);
-          const engage = hasEngage(item);
-          const row = document.createElement("div");
-          row.className = `p-2.5 rounded-lg border flex items-start gap-2 transition-all ${item.delivered ? 'bg-slate-100/60 border-slate-100 opacity-60' : engage ? 'bg-amber-50 border-amber-300' : 'bg-white border-slate-200 hover:border-indigo-300'}`;
-          row.innerHTML = `
-            <div class="w-7 h-6 shrink-0 rounded-full flex items-center justify-center font-extrabold text-[10px] border ${item.delivered ? 'bg-slate-200 text-slate-500 border-slate-300' : engage ? 'bg-red-500 text-white border-red-600' : 'bg-indigo-600 text-white border-indigo-700'}">
-              ${item.number || 'N'}
-            </div>
-            <div class="flex-1 min-w-0">
-              <div class="flex items-center justify-between gap-1 leading-tight">
-                <h5 class="text-xs font-bold text-slate-800 truncate ${item.delivered ? 'line-through text-slate-400' : ''}">${item.name}</h5>
-                ${engage ? '<span class="text-[8px] font-black px-1 bg-red-100 text-red-700 rounded shrink-0">⏰ ENGAGÉ</span>' : ''}
-              </div>
-              <input type="text" placeholder="Ajouter un code, consigne..." value="${(item.notes || '').replace(/"/g,'&quot;')}"
-                     onchange="updateNote(${globalIdx}, this.value)"
-                     class="w-full mt-1.5 px-2 py-1 text-[10px] border border-slate-200 rounded focus:outline-none focus:ring-1 focus:ring-indigo-500 bg-slate-50/50">
-            </div>
-            <div class="flex flex-col items-center justify-between gap-2 shrink-0 h-full self-stretch">
-              <input type="checkbox" ${item.delivered ? 'checked' : ''} onchange="toggleDelivered(${globalIdx})" class="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 cursor-pointer">
-              <button onclick="deleteDelivery(${globalIdx})" class="text-slate-400 hover:text-red-500 p-0.5 rounded transition-colors text-xs" title="Supprimer">🗑️</button>
-            </div>`;
-          itemsList.appendChild(row);
-        });
-        hubSection.appendChild(itemsList);
-        container.appendChild(hubSection);
-      });
-      if (visibleHubCount === 0)
-        container.innerHTML = `<p class="text-xs text-slate-400 text-center py-8">Aucun colis correspondant au filtre.</p>`;
-    }
-
-    function renderMapElements() {
-      markerGroup.clearLayers();
-      radialLinesGroup.clearLayers();
-      markerGroup.addLayer(depotMarker);
-      const drivingPoints = [[DEPOT.lat, DEPOT.lon]];
-      currentClusters.forEach((hub, hIdx) => {
-        const filteredItems = hub.items.filter(item => {
-          if (activeFilter === "todo") return !item.delivered;
-          if (activeFilter === "done") return item.delivered;
-          return true;
-        });
-        if (filteredItems.length === 0) return;
-        const hubCenter = [hub.lat, hub.lon];
-        drivingPoints.push(hubCenter);
-        const allDone = hub.items.every(item => item.delivered);
-        const hubColor = allDone ? '#94a3b8' : '#1e3a8a';
-        const parkingIcon = L.divIcon({
-          className: 'custom-parking',
-          html: `<div class="parking-badge w-8 h-8 rounded-lg shadow-lg flex flex-col items-center justify-center" style="background-color:${hubColor};"><span class="text-[8px] uppercase tracking-tighter leading-none opacity-85">STOP</span><span class="text-xs leading-none mt-0.5">${hIdx + 1}</span></div>`,
-          iconSize: [32, 32], iconAnchor: [16, 16]
-        });
-        const parkingMarker = L.marker(hubCenter, { icon: parkingIcon });
-        parkingMarker.bindPopup(`<div class="p-1"><h4 class="font-extrabold text-xs text-indigo-950">🅿️ Arrêt #${hIdx + 1}</h4><p class="text-[10px] text-slate-500 mb-1.5">${hub.name}</p><p class="text-[10px] font-semibold text-slate-700">Stationnez ici et livrez les ${filteredItems.length} point(s) à pied.</p></div>`);
-        markerGroup.addLayer(parkingMarker);
-        filteredItems.forEach((item) => {
-          const itemPos = [item.lat, item.lon];
-          const globalIdx = currentStreets.findIndex(s => s.name === item.name);
-          L.polyline([hubCenter, itemPos], { color: item.delivered ? '#cbd5e1' : '#10b981', weight: 1.5, opacity: 0.7, dashArray: '3, 4' }).addTo(radialLinesGroup);
-          const engage = hasEngage(item);
-          const pinColor = item.delivered ? '#cbd5e1' : engage ? '#dc2626' : '#4f46e5';
-          const deliveryIcon = L.divIcon({
-            className: 'custom-delivery',
-            html: `<div class="delivery-badge w-6 h-6 shadow-md" style="background-color:${pinColor};">${item.number || 'N'}</div>`,
-            iconSize: [24, 24], iconAnchor: [12, 12]
-          });
-          const deliveryMarker = L.marker(itemPos, { icon: deliveryIcon });
-          const mapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${item.lat},${item.lon}`;
-          deliveryMarker.bindPopup(`<div class="p-1.5"><h4 class="font-extrabold text-xs text-slate-900">${item.name}</h4><p class="text-[10px] text-slate-500 mb-1">Arrêt #${hIdx + 1}</p>${item.notes ? `<p class="text-[10px] italic text-amber-600 mb-2">${item.notes}</p>` : ''}<a href="${mapsUrl}" target="_blank" class="block text-center w-full bg-blue-600 hover:bg-blue-700 text-white font-bold text-[10px] py-1 px-2 rounded mb-1.5">🧭 Naviguer</a><button onclick="toggleDelivered(${globalIdx}); map.closePopup();" class="w-full bg-slate-900 hover:bg-slate-800 text-white font-bold text-[10px] py-1 px-2 rounded transition-all">${item.delivered ? "Marquer à refaire" : "Valider cette livraison"}</button></div>`);
-          markerGroup.addLayer(deliveryMarker);
-        });
-      });
-      if (drivingPoints.length > 1) {
-        polylineRoute.setLatLngs(drivingPoints);
-        map.fitBounds(markerGroup.getBounds(), { padding: [40, 40] });
-        fetchRoadRoute(drivingPoints); // tracé routier réel qui suit les rues
-      } else {
-        polylineRoute.setLatLngs([]);
-        roadRoute.setLatLngs([]);
-        map.setView([DEPOT.lat, DEPOT.lon], 15);
-      }
-    }
-
-    // --- Tracé routier réel via OSRM (calculé côté navigateur, suit les rues) ---
-    async function fetchRoadRoute(points) {
-      const statusEl = document.getElementById("route-status");
-      const myToken = ++roadRouteToken;
-      roadRoute.setLatLngs([]);
-      if (statusEl) statusEl.textContent = "🛰️ Calcul du trajet routier en cours…";
-
-      // OSRM limite le nombre de points par requête : on garde dépôt + centres d'arrêts (max ~100)
-      const coords = points.map(p => `${p[1]},${p[0]}`).join(";");
-      const url = `https://router.project-osrm.org/route/v1/driving/${coords}?overview=full&geometries=geojson`;
-
-      try {
-        const res = await fetch(url);
-        if (!res.ok) throw new Error("HTTP " + res.status);
-        const data = await res.json();
-        if (myToken !== roadRouteToken) return; // un recalcul plus récent a eu lieu
-        if (data.code !== "Ok" || !data.routes || !data.routes.length) throw new Error(data.code || "no route");
-
-        const route = data.routes[0];
-        const latlngs = route.geometry.coordinates.map(c => [c[1], c[0]]);
-        roadRoute.setLatLngs(latlngs);
-        lastRoadDistanceKm = route.distance / 1000;
-        const mins = Math.round(route.duration / 60);
-        if (statusEl) statusEl.textContent = `🚗 Trajet routier réel : ${lastRoadDistanceKm.toFixed(2)} km • ~${mins} min de conduite`;
-        const el = document.getElementById("print-dist");
-        if (el) el.textContent = `~${lastRoadDistanceKm.toFixed(2)} km (routier)`;
-      } catch (err) {
-        if (myToken !== roadRouteToken) return;
-        // Pas de réseau / OSRM indisponible → on garde la ligne à vol d'oiseau visible
-        polylineRoute.setStyle({ opacity: 0.7, weight: 3 });
-        if (statusEl) statusEl.textContent = "⚠️ Trajet routier indisponible (hors-ligne) — ligne directe affichée.";
-      }
-    }
-
-    // --- Ouvrir la tournée dans Google Maps, découpée en tronçons de 10 arrêts ---
-    // (Google Maps web n'accepte qu'~10 points par itinéraire ; on segmente et on
-    //  enchaîne : chaque tronçon repart du dernier arrêt du précédent.)
-    function openFullTourInGoogleMaps() {
-      if (currentClusters.length === 0) return;
-      const stops = currentClusters
-        .filter(hub => {
-          if (activeFilter === "todo") return !hub.items.every(i => i.delivered);
-          if (activeFilter === "done") return hub.items.every(i => i.delivered);
-          return true;
-        })
-        .map(hub => `${hub.lat.toFixed(6)},${hub.lon.toFixed(6)}`);
-
-      if (stops.length === 0) { alert("Aucun arrêt à afficher pour ce filtre."); return; }
-
-      // Points enchaînés : [dépôt, arrêt1, arrêt2, ...]
-      const chain = [`${DEPOT.lat},${DEPOT.lon}`, ...stops];
-      const MAX = 10; // points max par itinéraire Google Maps web
-      const segments = [];
-      let start = 0;
-      while (start < chain.length - 1) {
-        const end = Math.min(start + MAX - 1, chain.length - 1);
-        const slice = chain.slice(start, end + 1);
-        const origin = slice[0];
-        const destination = slice[slice.length - 1];
-        const waypoints = slice.slice(1, -1).join("|");
-        let url = `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(origin)}&destination=${encodeURIComponent(destination)}&travelmode=driving`;
-        if (waypoints) url += `&waypoints=${encodeURIComponent(waypoints)}`;
-        segments.push(url);
-        start = end; // le prochain tronçon repart du dernier arrêt atteint
-      }
-
-      if (segments.length === 1) {
-        window.open(segments[0], "_blank");
-        return;
-      }
-
-      // Plusieurs tronçons : on affiche une petite fenêtre avec un lien par tronçon
-      const w = window.open("", "_blank");
-      if (!w) { alert("Autorise les pop-ups pour ouvrir la navigation."); return; }
-      const links = segments.map((u, i) =>
-        `<a href="${u}" target="_blank" style="display:block;margin:8px 0;padding:12px;background:#2563eb;color:#fff;text-decoration:none;border-radius:8px;font-weight:700;text-align:center;">🧭 Tronçon ${i + 1} / ${segments.length} (arrêts ${i * (MAX - 1) + 1}–${Math.min((i + 1) * (MAX - 1), stops.length)})</a>`
-      ).join("");
-      w.document.write(
-        `<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">` +
-        `<title>Tournée — ${segments.length} tronçons Google Maps</title>` +
-        `<body style="font-family:system-ui,sans-serif;max-width:520px;margin:24px auto;padding:0 16px;">` +
-        `<h2 style="color:#1e3a8a;">Tournée en ${segments.length} tronçons</h2>` +
-        `<p style="color:#475569;font-size:14px;">Google Maps limite un itinéraire à ~10 points. Ta tournée (${stops.length} arrêts) est découpée ci-dessous. Ouvre chaque tronçon dans l'ordre ; chaque tronçon repart du dernier arrêt du précédent.</p>` +
-        links +
-        `<p style="color:#94a3b8;font-size:12px;margin-top:16px;">💡 Le tracé routier complet reste visible sur la carte de l'organisateur.</p>` +
-        `</body>`
-      );
-      w.document.close();
-    }
-
-    function updateStats() {
-      // distance véhicule : dépôt -> hub1 -> hub2 -> ... (dans l'ordre courant)
-      let dist = 0;
-      let prev = { lat: DEPOT.lat, lon: DEPOT.lon };
-      currentClusters.forEach(hub => { dist += haversine(prev, hub); prev = hub; });
-      vehicleDistanceKm = dist / 1000;
-      const doneCount = currentStreets.filter(s => s.delivered).length;
-      document.getElementById("tour-stats").textContent = currentStreets.length === 0
-        ? "Tournée vide — ajoute des adresses"
-        : `${doneCount}/${currentStreets.length} livrés • ${currentClusters.length} arrêts • ~${vehicleDistanceKm.toFixed(2)} km véhicule`;
-    }
-
-    function toggleDelivered(idx) {
-      currentStreets[idx].delivered = !currentStreets[idx].delivered;
-      clusterDeliveries();
-      // réordonner en préservant delivered
-      currentClusters.forEach(hub => { const c={lat:hub.lat,lon:hub.lon}; hub.items.sort((a,b)=>haversine(c,a)-haversine(c,b)); });
-      renderAll();
-    }
-
-    function deleteDelivery(idx) {
-      if (idx > -1 && idx < currentStreets.length) {
-        currentStreets.splice(idx, 1);
-        recomputeClustersAndRender();
-        optimizeTour();
-      }
-    }
-
-    function updateNote(idx, val) { currentStreets[idx].notes = val; renderAll(); }
-
-    // --- Tout vider : repartir d'une tournée vide ET effacer la sauvegarde locale ---
-    function clearAllDeliveries() {
-      if (currentStreets.length > 0 &&
-          !confirm(`Vider toute la tournée ?\n\n${currentStreets.length} adresse(s) seront supprimées et la sauvegarde effacée.\nTu pourras repartir de zéro (OCR ou ajout manuel).`)) {
-        return;
-      }
-      currentStreets = [];
-      currentClusters = [];
-      roadRouteToken++;               // annule tout calcul de route en cours
-      if (roadRoute) roadRoute.setLatLngs([]);
-      if (polylineRoute) polylineRoute.setLatLngs([]);
-      lastRoadDistanceKm = null;
-      clearSavedState();              // efface le cache du navigateur
-      recomputeClustersAndRender();  // renderAll ré-écrira un état vide (ou rien si déjà vide)
-      clearSavedState();             // garantit l'effacement même après le save de renderAll
-      const statusEl = document.getElementById("route-status");
-      if (statusEl) statusEl.textContent = "🗑️ Tournée vidée et sauvegarde effacée.";
-      map.setView([DEPOT.lat, DEPOT.lon], 15);
-    }
-
-    async function addNewAddress() {
-      const input = document.getElementById("add-street-input");
-      const errEl = document.getElementById("geocode-error");
-      const query = input.value.trim();
-      if (!query) return;
-      errEl.classList.add("hidden");
-      try {
-        const queryFull = /orl[ée]ans/i.test(query) ? query : `${query} Orléans`;
-        const url = `https://api-adresse.data.gouv.fr/search/?q=${encodeURIComponent(queryFull)}&lat=47.9027&lon=1.9086&limit=1`;
-        const res = await fetch(url);
-        if (!res.ok) throw new Error("Serveur BAN inaccessible");
-        const data = await res.json();
-        const feature = data.features?.[0];
-        if (!feature) throw new Error("Adresse introuvable à Orléans. Précisez le numéro.");
-        const [lon, lat] = feature.geometry.coordinates;
-        const fullName = feature.properties.name || feature.properties.label;
-        currentStreets.push({
-          name: fullName, street: feature.properties.street || fullName,
-          number: feature.properties.housenumber || "N", lat, lon, notes: "", delivered: false
-        });
-        input.value = "";
-        recomputeClustersAndRender();
-        optimizeTour();
-      } catch (err) { errEl.textContent = err.message; errEl.classList.remove("hidden"); }
-    }
-
-    function updatePrintView() {
-      document.getElementById("print-date").textContent = new Date().toLocaleDateString("fr-FR", { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' });
-      document.getElementById("print-count").textContent = currentStreets.length;
-      document.getElementById("print-hubs").textContent = currentClusters.length;
-      document.getElementById("print-dist").textContent = `~${vehicleDistanceKm.toFixed(2)} km`;
-      const zonesContainer = document.getElementById("print-zones-container");
-      zonesContainer.innerHTML = "";
-      currentClusters.forEach((hub, hIdx) => {
-        const card = document.createElement("div");
-        card.className = "print-card bg-white border border-slate-300 rounded-lg overflow-hidden";
-        card.innerHTML = `
-          <div class="bg-slate-100 p-2.5 border-b border-slate-300 flex justify-between items-center">
-            <h3 class="text-xs font-black uppercase text-indigo-950">🚗 ARRÊT #${hIdx + 1} — ${hub.name}</h3>
-            <span class="text-[10px] font-bold text-slate-600">${hub.items.length} point(s)</span>
-          </div>
-          <table class="w-full text-left border-collapse">
-            <thead>
-              <tr class="bg-slate-50 text-[10px] font-bold uppercase border-b border-slate-200 text-slate-500">
-                <th class="py-1 px-3 w-10 text-center">N°</th>
-                <th class="py-1 px-3 w-8 text-center">Fait</th>
-                <th class="py-1 px-3 w-1/3">Adresse</th>
-                <th class="py-1 px-3">Destinataire / Consignes</th>
-                <th class="py-1 px-3 w-28 text-center">Émargement</th>
-              </tr>
-            </thead>
-            <tbody class="text-xs">
-              ${hub.items.map(item => `
-                <tr class="border-b border-slate-200 ${hasEngage(item) ? 'bg-amber-50' : ''}">
-                  <td class="py-1.5 px-3 text-center font-extrabold text-slate-700 bg-slate-50">${item.number}</td>
-                  <td class="py-1.5 px-3 text-center"><span class="inline-block w-3.5 h-3.5 border border-slate-400 rounded"></span></td>
-                  <td class="py-1.5 px-3 font-bold text-slate-900">${item.name}</td>
-                  <td class="py-1.5 px-3 italic text-slate-600 text-[11px] ${hasEngage(item) ? 'text-red-600 font-bold' : ''}">${item.notes || '—'}</td>
-                  <td class="py-1.5 px-3 text-slate-300 text-center text-[10px]">________________</td>
-                </tr>`).join('')}
-            </tbody>
-          </table>`;
-        zonesContainer.appendChild(card);
-      });
-    }
-
-    /* =========================================================
-       OCR : lecture de screenshots -> extraction -> validation BAN
-       ========================================================= */
-
-    let ocrCandidates = []; // adresses détectées en attente de revue
-
-    // Types de voies reconnus (pour repérer une ligne d'adresse)
-    const VOIE_RE = /\b(rue|avenue|av|bd|boulevard|allée|allee|impasse|place|pl|quai|chemin|route|passage|ruelle|cours|square|faubourg|fbg)\b/i;
-
-    // Corrections fréquentes d'OCR sur des photos d'écran
-    function cleanOcrLine(raw) {
-      let s = raw.replace(/\s+/g, ' ').trim();
-      // enlève caractères parasites de début/fin
-      s = s.replace(/^[^0-9A-Za-zÀ-ÿ]+/, '').replace(/[^0-9A-Za-zÀ-ÿ'.\- ]+$/, '');
-      return s;
-    }
-
-    // Extrait les candidats "numéro + rue" d'un bloc de texte OCR
-    function extractAddresses(text) {
-      const out = [];
-      const lines = text.split(/\n+/);
-      // Regex : un numéro (avec bis/ter éventuel) suivi d'un type de voie
-      const re = /\b(\d{1,4})\s*(bis|ter|quater|[a-z])?\s+((?:rue|avenue|av|bd|boulevard|all[ée]e|impasse|place|pl|quai|chemin|route|passage|ruelle|cours|square|faubourg|fbg)\b.*)/i;
-      for (let line of lines) {
-        const cleaned = cleanOcrLine(line);
-        if (!VOIE_RE.test(cleaned)) continue;
-        const m = cleaned.match(re);
-        if (!m) continue;
-        const num = m[1];
-        const suffix = m[2] ? (' ' + m[2]) : '';
-        // Nom de voie : on coupe avant un éventuel code/nom en fin (on garde ce qui suit le type de voie)
-        let voie = m[3].trim();
-        // retire les codes-barres / codes suivi collés à la fin : tokens alphanumériques
-        // contenant au moins un chiffre (ex. 6A070618100XX, CY438619219XX, 45000...).
-        // On NE touche PAS aux noms de rue en MAJUSCULES (ILLIERS, PATERNE...) qui n'ont pas de chiffre.
-        voie = voie.replace(/\s+(?=\S*\d)\S{5,}.*$/, '').trim();
-        // retire les tokens parasites isolés en fin de ligne (bruit OCR fréquent) :
-        // un nom de rue FR ne se termine jamais par un "mot" d'un seul caractère.
-        // Ex. "COLOMBIER ê", "LIMARE |", "PATERNE ]", "CARMES ." -> on coupe le dernier token d'1 char.
-        // On répète pour enlever plusieurs parasites empilés (ex. "... ê |").
-        for (let i = 0; i < 3; i++) {
-          const trimmed = voie.replace(/\s+\S$/, '').trim();  // \S = 1 seul caractère non-espace en fin
-          if (trimmed === voie) break;
-          voie = trimmed;
-        }
-        // normalise "D ILLIERS" -> "d'Illiers" indirectement : on laisse tel quel, la BAN gère
-        if (voie.length < 4) continue;
-        const query = `${num}${suffix} ${voie}`;
-        out.push(query);
-      }
-      return out;
-    }
-
-    function setOcrProgress(pct, txt) {
-      const wrap = document.getElementById("ocr-progress");
-      wrap.classList.remove("hidden");
-      document.getElementById("ocr-bar").style.width = `${Math.round(pct)}%`;
-      document.getElementById("ocr-progress-text").textContent = txt;
-    }
-    function hideOcrProgress() { document.getElementById("ocr-progress").classList.add("hidden"); }
-
-    async function handleOcrFiles(fileList) {
-      const files = Array.from(fileList || []);
-      if (!files.length) return;
-      if (typeof Tesseract === "undefined") {
-        alert("Le moteur OCR n'a pas pu se charger (connexion internet requise au premier lancement).");
-        return;
-      }
-      ocrCandidates = [];
-      const rawQueries = new Set();
-      let fullText = "";          // tout le texte OCR brut (pour diagnostic + plan B)
-
-      setOcrProgress(2, `Initialisation OCR…`);
-      let currentImg = 0;
-      const logger = m => {
-        if (m.status === 'recognizing text') {
-          setOcrProgress(10 + m.progress * 60, `Lecture image ${currentImg}/${files.length}… ${Math.round(m.progress*100)}%`);
-        } else if (m.status) {
-          setOcrProgress(4, `${m.status}…`);
-        }
-      };
-
-      // Création du worker (signatures multiples pour compatibilité versions Tesseract.js).
-      // On essaie du plus complet au plus simple ; certaines versions rejettent { logger }.
-      let worker = null, lastErr = null;
-      const attempts = [
-        () => Tesseract.createWorker('fra', 1, { logger }),
-        () => Tesseract.createWorker('fra'),
-        () => Tesseract.createWorker('eng'),
-        () => Tesseract.createWorker(),
-      ];
-      for (const make of attempts) {
-        try { worker = await make(); if (worker) break; }
-        catch (e) { lastErr = e; console.warn("createWorker échec:", e && e.message); }
-      }
-      if (!worker) {
-        hideOcrProgress();
-        console.error("OCR init impossible", lastErr);
-        openPasteFallback("", "⚠️ Le moteur OCR n'a pas pu démarrer (une extension du navigateur peut interférer).\nColle le texte de tes colis ci-dessous — une adresse par ligne :");
-        return;
-      }
-
-      for (const file of files) {
-        currentImg++;
-        setOcrProgress(10, `Lecture image ${currentImg}/${files.length}…`);
-        try {
-          const { data } = await worker.recognize(file);
-          fullText += (data.text || "") + "\n";
-          extractAddresses(data.text || "").forEach(q => rawQueries.add(q));
-        } catch (e) {
-          console.warn("OCR échec sur", file.name, e);
-        }
-      }
-      try { await worker.terminate(); } catch (e) {}
-
-      console.log("=== TEXTE OCR BRUT ===\n" + fullText + "\n=== FIN ===");
-
-      const queries = Array.from(rawQueries);
-      if (!queries.length) {
-        hideOcrProgress();
-        document.getElementById("ocr-file-input").value = "";
-        if (fullText.trim().length < 5) {
-          // L'OCR n'a quasiment rien lu (image illisible ou moteur muet)
-          openPasteFallback("", "⚠️ L'OCR n'a pas réussi à lire ces images (reflets/flou).\nColle le texte des colis à la main ci-dessous — une adresse par ligne :");
-        } else {
-          // L'OCR a lu du texte mais aucune adresse reconnue : on le pré-remplit pour correction
-          openPasteFallback(fullText, "L'OCR a lu ce texte mais n'y a pas reconnu d'adresse.\nCorrige / garde les lignes d'adresses (une par ligne) puis valide :");
-        }
-        return;
-      }
-
-      document.getElementById("ocr-file-input").value = "";
-      await validateAndReview(queries);
-    }
-
-    // --- Validation d'une liste de requêtes d'adresses via la BAN, puis revue ---
-    async function validateAndReview(queries) {
-      ocrCandidates = [];
-      setOcrProgress(72, `Validation de ${queries.length} adresse(s)…`);
-      const existingNames = new Set(currentStreets.map(s => s.name.toLowerCase()));
-      let done = 0;
-      for (const q of queries) {
-        done++;
-        setOcrProgress(72 + (done / queries.length) * 26, `Validation ${done}/${queries.length}…`);
-        // Garde-fou : ne pas envoyer de requête invalide à la BAN (évite les HTTP 400)
-        const qClean = (q || "").replace(/^[^0-9A-Za-zÀ-ÿ]+/, "").trim();
-        if (qClean.length < 3 || !/[A-Za-zÀ-ÿ]{3,}/.test(qClean)) continue;
-        try {
-          // Filtrage géographique par coordonnées (centre Orléans) plutôt que &city=
-          // (bien plus robuste : &city= est un filtre strict qui peut tout rejeter).
-          // On ajoute "Orléans" à la requête pour lever les ambiguïtés de nom de rue.
-          const qFull = /orl[ée]ans/i.test(qClean) ? qClean : `${qClean} Orléans`;
-          const url = `https://api-adresse.data.gouv.fr/search/?q=${encodeURIComponent(qFull)}&lat=47.9027&lon=1.9086&limit=1`;
-          const res = await fetch(url);
-          if (!res.ok) continue;
-          const d = await res.json();
-          const f = d.features?.[0];
-          if (!f) continue;
-          const [lon, lat] = f.geometry.coordinates;
-          const name = f.properties.name || f.properties.label;
-          const dup = existingNames.has(name.toLowerCase()) ||
-                      ocrCandidates.some(c => c.name.toLowerCase() === name.toLowerCase());
-          ocrCandidates.push({
-            raw: q, name,
-            street: f.properties.street || name,
-            number: f.properties.housenumber || (q.match(/^\d+/)?.[0]) || "N",
-            lat, lon,
-            score: f.properties.score,
-            checked: !dup && f.properties.score > 0.4,
-            dup
-          });
-        } catch (e) { /* ignore une adresse en échec */ }
-      }
-      hideOcrProgress();
-      if (!ocrCandidates.length) {
-        openPasteFallback(queries.join("\n"),
-          "Aucune de ces lignes n'a été reconnue par la Base Adresse Nationale.\nCorrige-les (ex. ajoute 'Orléans', vérifie le numéro) puis revalide :");
-        return;
-      }
-      openOcrReview();
-    }
-
-    // --- Plan B : coller/corriger le texte à la main quand l'OCR échoue ---
-    function openPasteFallback(prefill, message) {
-      const existing = document.getElementById("paste-fallback-modal");
-      if (existing) existing.remove();
-      const modal = document.createElement("div");
-      modal.id = "paste-fallback-modal";
-      modal.className = "fixed inset-0 z-[3100] bg-black/50 flex items-center justify-center p-4 no-print";
-      modal.innerHTML = `
-        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[85vh] flex flex-col overflow-hidden">
-          <div class="p-4 border-b border-slate-200 bg-indigo-950 text-white flex justify-between items-center">
-            <h3 class="text-sm font-black">✍️ Saisie / correction manuelle</h3>
-            <button onclick="document.getElementById('paste-fallback-modal').remove()" class="text-white/70 hover:text-white text-xl leading-none">✕</button>
-          </div>
-          <div class="p-4 flex-1 overflow-y-auto">
-            <p class="text-[11px] text-slate-600 mb-2 whitespace-pre-line">${message}</p>
-            <textarea id="paste-fallback-text" rows="10"
-              class="w-full border border-slate-300 rounded-lg p-2 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              placeholder="1 Rue d'Illiers&#10;33 Rue d'Illiers&#10;11 Rue de Limare&#10;..."></textarea>
-            <p class="text-[10px] text-slate-400 mt-1">Une adresse par ligne. Les lignes sans numéro+rue seront ignorées.</p>
-          </div>
-          <div class="p-3 border-t border-slate-200 bg-slate-50 flex gap-2">
-            <button onclick="document.getElementById('paste-fallback-modal').remove()" class="flex-1 border border-slate-300 hover:bg-slate-100 text-slate-700 font-bold text-xs py-2 rounded-lg">Annuler</button>
-            <button onclick="submitPasteFallback()" class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs py-2 rounded-lg">🔎 Analyser ce texte</button>
-          </div>
-        </div>`;
-      document.body.appendChild(modal);
-      document.getElementById("paste-fallback-text").value = prefill || "";
-    }
-
-    // Une ligne "plausible" pour la BAN : commence par lettre/chiffre, 3-200 chars,
-    // contient au moins un chiffre (numéro) ET au moins 3 lettres consécutives (nom de rue).
-    function isPlausibleAddressLine(l) {
-      if (!l || l.length < 3 || l.length > 200) return false;
-      if (!/^[0-9A-Za-zÀ-ÿ]/.test(l)) return false;      // doit démarrer par lettre/chiffre
-      if (!/\d/.test(l)) return false;                    // un numéro de rue
-      if (!/[A-Za-zÀ-ÿ]{3,}/.test(l)) return false;       // un mot de rue
-      return true;
-    }
-
-    async function submitPasteFallback() {
-      const txt = document.getElementById("paste-fallback-text").value || "";
-      const modal = document.getElementById("paste-fallback-modal");
-      if (modal) modal.remove();
-      // 1) on tente l'extraction stricte ; 2) sinon on prend chaque ligne "plausible"
-      let queries = extractAddresses(txt);
-      if (!queries.length) {
-        queries = txt.split(/\n+/)
-          .map(l => l.trim())
-          .filter(isPlausibleAddressLine);
-      }
-      if (!queries.length) {
-        alert("Aucune ligne exploitable.\n\nSaisis au moins une adresse au format : « 12 Rue des Carmes ».\n(Une adresse = un numéro + un nom de rue.)");
-        return;
-      }
-      setOcrProgress(70, "Validation des adresses saisies…");
-      await validateAndReview(queries);
-    }
-
-    function openOcrReview() {
-      const list = document.getElementById("ocr-review-list");
-      list.innerHTML = "";
-      ocrCandidates.forEach((c, i) => {
-        const row = document.createElement("div");
-        const scorePct = Math.round((c.score || 0) * 100);
-        const scoreColor = scorePct >= 80 ? 'text-emerald-600' : scorePct >= 50 ? 'text-amber-600' : 'text-red-500';
-        row.className = `p-2.5 rounded-lg border flex items-start gap-2 ${c.dup ? 'bg-amber-50 border-amber-200' : 'bg-white border-slate-200'}`;
-        row.innerHTML = `
-          <input type="checkbox" ${c.checked ? 'checked' : ''} onchange="ocrCandidates[${i}].checked=this.checked"
-                 class="w-4 h-4 mt-0.5 rounded text-emerald-600 cursor-pointer shrink-0">
-          <div class="flex-1 min-w-0">
-            <input type="text" value="${c.name.replace(/"/g,'&quot;')}"
-                   onchange="ocrCandidates[${i}].name=this.value"
-                   class="w-full text-xs font-bold text-slate-800 border border-slate-200 rounded px-1.5 py-1 focus:outline-none focus:ring-1 focus:ring-indigo-500">
-            <div class="flex items-center gap-2 mt-1 text-[9px]">
-              <span class="${scoreColor} font-bold">Fiabilité ${scorePct}%</span>
-              ${c.dup ? '<span class="text-amber-600 font-bold">⚠️ déjà dans la tournée</span>' : ''}
-              <span class="text-slate-400 truncate">OCR: ${c.raw}</span>
-            </div>
-          </div>`;
-        list.appendChild(row);
-      });
-      document.getElementById("ocr-review-modal").classList.remove("hidden");
-    }
-
-    function closeOcrReview() {
-      document.getElementById("ocr-review-modal").classList.add("hidden");
-      ocrCandidates = [];
-    }
-
-    function confirmOcrReview() {
-      const toAdd = ocrCandidates.filter(c => c.checked);
-      if (!toAdd.length) { closeOcrReview(); return; }
-      toAdd.forEach(c => {
-        currentStreets.push({
-          name: c.name, street: c.street, number: c.number,
-          lat: c.lat, lon: c.lon, notes: "", delivered: false
-        });
-      });
-      document.getElementById("ocr-review-modal").classList.add("hidden");
-      ocrCandidates = [];
-      recomputeClustersAndRender();
-      optimizeTour();
-      const statusEl = document.getElementById("route-status");
-      if (statusEl) statusEl.textContent = `✅ ${toAdd.length} adresse(s) ajoutée(s) par OCR`;
-      // En mode onglets (mobile/iPad portrait), on bascule vers Tournée pour voir le résultat
-      if (window.innerWidth < 1024) switchMobileView('list');
-    }
-
-    // Drag & drop sur la zone OCR
-    (function initOcrDropzone() {
-      const dz = document.getElementById("ocr-dropzone");
-      if (!dz) return;
-      ["dragenter","dragover"].forEach(ev => dz.addEventListener(ev, e => {
-        e.preventDefault(); dz.classList.add("bg-indigo-100","border-indigo-500");
-      }));
-      ["dragleave","drop"].forEach(ev => dz.addEventListener(ev, e => {
-        e.preventDefault(); dz.classList.remove("bg-indigo-100","border-indigo-500");
-      }));
-      dz.addEventListener("drop", e => {
-        const files = e.dataTransfer?.files;
-        if (files && files.length) handleOcrFiles(files);
-      });
-    })();
-  </script>
+window.toggleDelivered=toggleDelivered;window.deleteDelivery=deleteDelivery;window.markStopDone=markStopDone;window.restoreDelivery=restoreDelivery;
+load();state.radius=Number.isFinite(Number(state.radius))?Number(state.radius):20;updateStartLabel();
+computePlan(true).then(()=>{if(isFullMapMode)initFullMapMode();});
+</script>
 </body>
 </html>
